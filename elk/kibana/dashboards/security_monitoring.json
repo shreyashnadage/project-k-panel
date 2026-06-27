@@ -1,0 +1,233 @@
+{
+  "version": "8.13.0",
+  "objects": [
+    {
+      "type": "dashboard",
+      "id": "security-monitoring",
+      "attributes": {
+        "title": "Security Monitoring Dashboard",
+        "description": "Monitor security events, unauthorized access attempts, and suspicious activities",
+        "version": 1,
+        "refreshInterval": {
+          "pause": false,
+          "value": 5000
+        },
+        "timeRestore": true,
+        "timeFrom": "now-24h",
+        "timeTo": "now",
+        "panels": [
+          {
+            "version": "8.13.0",
+            "type": "visualization",
+            "gridData": {
+              "x": 0,
+              "y": 0,
+              "w": 8,
+              "h": 8
+            },
+            "id": "unauthorized-attempts-count"
+          },
+          {
+            "version": "8.13.0",
+            "type": "visualization",
+            "gridData": {
+              "x": 8,
+              "y": 0,
+              "w": 8,
+              "h": 8
+            },
+            "id": "cross-client-access-attempts"
+          },
+          {
+            "version": "8.13.0",
+            "type": "visualization",
+            "gridData": {
+              "x": 16,
+              "y": 0,
+              "w": 8,
+              "h": 8
+            },
+            "id": "admin-overrides-count"
+          },
+          {
+            "version": "8.13.0",
+            "type": "visualization",
+            "gridData": {
+              "x": 0,
+              "y": 8,
+              "w": 24,
+              "h": 10
+            },
+            "id": "failed-access-timeline"
+          },
+          {
+            "version": "8.13.0",
+            "type": "visualization",
+            "gridData": {
+              "x": 0,
+              "y": 18,
+              "w": 24,
+              "h": 12
+            },
+            "id": "security-events-table"
+          }
+        ]
+      }
+    },
+    {
+      "type": "visualization",
+      "id": "unauthorized-attempts-count",
+      "attributes": {
+        "title": "Unauthorized Access Attempts (24h)",
+        "visState": {
+          "title": "Unauthorized Access Attempts",
+          "type": "metric",
+          "aggs": [
+            {
+              "id": "1",
+              "enabled": true,
+              "type": "count",
+              "schema": "metric",
+              "params": {}
+            }
+          ],
+          "params": {
+            "handleNoResults": true
+          }
+        },
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": {
+            "query": {
+              "match": {
+                "allowed": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "visualization",
+      "id": "cross-client-access-attempts",
+      "attributes": {
+        "title": "Cross-Client Access Attempts",
+        "visState": {
+          "title": "Cross-Client Access Attempts",
+          "type": "metric",
+          "aggs": [
+            {
+              "id": "1",
+              "enabled": true,
+              "type": "count",
+              "schema": "metric",
+              "params": {}
+            }
+          ],
+          "params": {
+            "handleNoResults": true
+          }
+        },
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": {
+            "query": {
+              "match": {
+                "reason": "Cross-client"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "visualization",
+      "id": "admin-overrides-count",
+      "attributes": {
+        "title": "Admin Overrides (24h)",
+        "visState": {
+          "title": "Admin Overrides",
+          "type": "metric",
+          "aggs": [
+            {
+              "id": "1",
+              "enabled": true,
+              "type": "count",
+              "schema": "metric",
+              "params": {}
+            }
+          ],
+          "params": {
+            "handleNoResults": true
+          }
+        },
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": {
+            "query": {
+              "match": {
+                "role": "admin"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "visualization",
+      "id": "failed-access-timeline",
+      "attributes": {
+        "title": "Failed Access Attempts Timeline",
+        "visState": {
+          "title": "Failed Access Timeline",
+          "type": "line",
+          "aggs": [
+            {
+              "id": "1",
+              "enabled": true,
+              "type": "count",
+              "schema": "metric",
+              "params": {}
+            },
+            {
+              "id": "2",
+              "enabled": true,
+              "type": "date_histogram",
+              "schema": "segment",
+              "params": {
+                "field": "timestamp",
+                "interval": "5m"
+              }
+            }
+          ]
+        },
+        "kibanaSavedObjectMeta": {
+          "searchSourceJSON": {
+            "query": {
+              "match": {
+                "allowed": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "visualization",
+      "id": "security-events-table",
+      "attributes": {
+        "title": "Security Events Detail",
+        "visState": {
+          "title": "Security Events",
+          "type": "table",
+          "aggs": [
+            {
+              "id": "1",
+              "enabled": true,
+              "type": "count",
+              "schema": "metric",
+              "params": {}
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
