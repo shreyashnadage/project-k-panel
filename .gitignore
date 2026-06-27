@@ -73,3 +73,9 @@ tally-sync-admin_accessKeys.csv
 tally-sync-admin_credentials.csv
 *.bak
 
+
+# Deployment files
+.deployment/
+.env.deployment
+deployment_summary.txt
+load_test_results*.csv
