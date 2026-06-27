@@ -69,3 +69,7 @@ htmlcov/
 *.pfx
 *.pem
 certificate.txt
+tally-sync-admin_accessKeys.csv
+tally-sync-admin_credentials.csv
+*.bak
+
