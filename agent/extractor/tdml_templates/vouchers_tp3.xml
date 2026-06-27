@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tally TDML Request: Extract vouchers from date range -->
+<!-- Used for incremental sync: extracting changes within a date window -->
+<!-- Template variables: {company_name}, {from_date}, {to_date} (format: YYYYMMDD) -->
+<ENVELOPE>
+  <HEADER>
+    <TALLYREQUEST>Export Data</TALLYREQUEST>
+  </HEADER>
+  <BODY>
+    <EXPORTDATA>
+      <REQUESTDESC>
+        <REPORTNAME>Voucher Register</REPORTNAME>
+        <STATICVARIABLES>
+          <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+          <SVCURRENTCOMPANY>{company_name}</SVCURRENTCOMPANY>
+          <SVFROMDATE>{from_date}</SVFROMDATE>
+          <SVTODATE>{to_date}</SVTODATE>
+        </STATICVARIABLES>
+        <FETCHLIST>
+          <FETCH>GUID</FETCH>
+          <FETCH>ALTERID</FETCH>
+          <FETCH>DATE</FETCH>
+          <FETCH>VOUCHERTYPENAME</FETCH>
+          <FETCH>VOUCHERNUMBER</FETCH>
+          <FETCH>PARTYLEDGERNAME</FETCH>
+          <FETCH>NARRATION</FETCH>
+          <FETCH>ALLLEDGERENTRIES.LEDGERNAME</FETCH>
+          <FETCH>ALLLEDGERENTRIES.AMOUNT</FETCH>
+          <FETCH>ALLLEDGERENTRIES.ISDEEMEDPOSITIVE</FETCH>
+        </FETCHLIST>
+      </REQUESTDESC>
+    </EXPORTDATA>
+  </BODY>
+</ENVELOPE>

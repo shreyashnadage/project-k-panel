@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tally-sync-agent"
+version = "0.1.0"
+description = "Sync accounting data from Tally to cloud platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Founding Engineer", email = "shreyashnadage@gmail.com"}
+]
+
+[project.urls]
+Homepage = "https://yourplatform.in"
+Repository = "https://github.com/yourorg/tally-sync-agent"
+
+[tool.setuptools]
+packages = ["agent", "cloudplatform"]
+
+[project.optional-dependencies]
+agent = [
+    "requests>=2.31.0",
+    "httpx>=0.25.0",
+    "pysqlcipher3>=1.0.0",
+    "keyring>=24.0.0",
+    "schedule>=1.2.0",
+    "pywin32>=305",
+    "pystray>=0.19.0",
+    "Pillow>=10.0.0",
+]
+platform = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    "psycopg2-binary>=2.9.0",
+    "pydantic>=2.0.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=4.1.0",
+    "responses>=0.24.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+build = [
+    "pyinstaller>=6.1.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "unit: Fast unit tests (no external dependencies)",
+    "integration: Tests requiring Tally/DB connection",
+    "e2e: End-to-end tests (requires deployed environment)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["agent", "cloudplatform"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/main.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # Line too long (black handles this)
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+

@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project-specific
+sync_state.json
+queue.db
+queue.db-shm
+queue.db-wal
+extraction_output.json
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.local
+settings.local.json
+
+# Build artifacts
+dist/
+build/
+*.exe
+*.msi
+
+# OS
+Thumbs.db
+.DS_Store
+*.lnk
+
+# Test artifacts
+.coverage
+.pytest_cache/
+htmlcov/
+.tmp/
+
+# Credentials (never commit)
+*.pfx
+*.pem
+certificate.txt
