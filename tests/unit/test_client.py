@@ -1,11 +1,11 @@
 """
-Unit tests for Tally HTTP client
+Unit tests for Tally HTTP client (JSON API version)
 
 Uses mocked HTTP responses (no live Tally connection needed).
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from agent.extractor.client import (
     TallyClient,
     TallyConnectionError,
@@ -15,12 +15,7 @@ from agent.extractor.client import (
 import requests
 
 
-SAMPLE_RESPONSE = """<?xml version="1.0" encoding="utf-16"?>
-<ENVELOPE>
-  <BODY>
-    <DATA>success</DATA>
-  </BODY>
-</ENVELOPE>"""
+SAMPLE_JSON_RESPONSE = {"data": [{"Name": "Cash", "Parent": "Cash-in-hand"}]}
 
 
 class TestTallyClient:
@@ -39,33 +34,34 @@ class TestTallyClient:
 
     @patch('agent.extractor.client.requests.post')
     def test_successful_request(self, mock_post):
-        """Successful request returns XML response"""
-        # Mock Tally response: UTF-16 encoded
+        """Successful request returns parsed JSON response"""
         mock_response = Mock()
-        mock_response.content = SAMPLE_RESPONSE.encode('utf-16')
+        mock_response.json.return_value = SAMPLE_JSON_RESPONSE
         mock_post.return_value = mock_response
 
         client = TallyClient()
-        result = client.request("<TEST/>")
+        result = client.request("export", "Ledger", "Test Company", ["Name", "Parent"])
 
-        assert "success" in result
+        assert result == SAMPLE_JSON_RESPONSE
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        assert call_args[1]['headers']['Content-Type'] == 'application/xml; charset=utf-8'
+        assert call_args[1]['headers']['tallyrequest'] == 'export'
+        assert call_args[1]['headers']['subtype'] == 'Ledger'
+        assert call_args[1]['json']['static_variables'][1]['value'] == 'Test Company'
 
     @patch('agent.extractor.client.requests.post')
     def test_request_enforces_delay(self, mock_post):
         """Requests are delayed to avoid overwhelming Tally"""
         mock_response = Mock()
-        mock_response.content = SAMPLE_RESPONSE.encode('utf-16')
+        mock_response.json.return_value = SAMPLE_JSON_RESPONSE
         mock_post.return_value = mock_response
 
         client = TallyClient(delay_ms=100)
         import time
         start = time.monotonic()
-        client.request("<TEST/>")
+        client.request("export", "Ledger", "Test Company", ["Name"])
         # Second request should be delayed
-        client.request("<TEST/>")
+        client.request("export", "Ledger", "Test Company", ["Name"])
         elapsed = (time.monotonic() - start) * 1000
 
         # Should take at least ~100ms (allow 20ms margin for system variance)
@@ -78,7 +74,7 @@ class TestTallyClient:
 
         client = TallyClient()
         with pytest.raises(TallyConnectionError):
-            client.request("<TEST/>")
+            client.request("export", "Ledger", "Test Company", ["Name"])
 
     @patch('agent.extractor.client.requests.post')
     def test_timeout_error_raises_exception(self, mock_post):
@@ -87,25 +83,24 @@ class TestTallyClient:
 
         client = TallyClient()
         with pytest.raises(TallyTimeoutError):
-            client.request("<TEST/>")
+            client.request("export", "Ledger", "Test Company", ["Name"])
 
     @patch('agent.extractor.client.requests.post')
     def test_response_decode_error_raises_exception(self, mock_post):
-        """Invalid UTF-16 response raises TallyResponseError"""
+        """Invalid JSON response raises TallyResponseError"""
         mock_response = Mock()
-        # Create bytes that will fail UTF-16 decoding
-        mock_response.content = b'\x00'  # Single null byte (invalid UTF-16)
+        mock_response.json.side_effect = ValueError("No JSON object could be decoded")
         mock_post.return_value = mock_response
 
         client = TallyClient()
         with pytest.raises(TallyResponseError):
-            client.request("<TEST/>")
+            client.request("export", "Ledger", "Test Company", ["Name"])
 
     @patch('agent.extractor.client.requests.post')
     def test_is_reachable_returns_true_when_responsive(self, mock_post):
         """is_reachable() returns True when Tally responds"""
         mock_response = Mock()
-        mock_response.content = SAMPLE_RESPONSE.encode('utf-16')
+        mock_response.json.return_value = SAMPLE_JSON_RESPONSE
         mock_post.return_value = mock_response
 
         client = TallyClient()
@@ -131,13 +126,13 @@ class TestTallyClient:
     def test_multiple_requests_serialize(self, mock_post):
         """Multiple requests are serialized (not concurrent)"""
         mock_response = Mock()
-        mock_response.content = SAMPLE_RESPONSE.encode('utf-16')
+        mock_response.json.return_value = SAMPLE_JSON_RESPONSE
         mock_post.return_value = mock_response
 
         client = TallyClient()
-        client.request("<TEST1/>")
-        client.request("<TEST2/>")
-        client.request("<TEST3/>")
+        client.request("export", "Ledger", "Test Company", ["Name"])
+        client.request("export", "Ledger", "Test Company", ["Name"])
+        client.request("export", "Ledger", "Test Company", ["Name"])
 
         assert mock_post.call_count == 3
 
@@ -145,19 +140,3 @@ class TestTallyClient:
         """Trailing slashes in URL are normalized"""
         client = TallyClient(base_url="http://localhost:9000/")
         assert client.base_url == "http://localhost:9000"
-
-    @patch('agent.extractor.client.requests.post')
-    def test_request_uses_utf8_encoding(self, mock_post):
-        """Requests use UTF-8 encoding for body"""
-        mock_response = Mock()
-        mock_response.content = SAMPLE_RESPONSE.encode('utf-16')
-        mock_post.return_value = mock_response
-
-        client = TallyClient()
-        # Unicode characters should be handled
-        client.request("<TEST>रमेश</TEST>")
-
-        call_args = mock_post.call_args
-        # Body should be encoded as UTF-8
-        sent_data = call_args[1]['data']
-        assert isinstance(sent_data, bytes)

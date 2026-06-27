@@ -12,11 +12,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
 from cloudplatform.main import app
-from cloudplatform.db.models import Base, Tenant
+from cloudplatform.db.models import Base, Tenant, Voucher, Ledger
 from cloudplatform.db.database import get_db
 
 
 # ────────────────────────────────────────────────────────────────────────────
+from sqlalchemy.pool import StaticPool
+
+
 # Test Database Setup
 # ────────────────────────────────────────────────────────────────────────────
 
@@ -25,17 +28,23 @@ def test_db_engine():
     """Create test database engine (session-scoped)."""
     engine = create_engine(
         "sqlite:///:memory:",
-        connect_args={"check_same_thread": False}
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
     )
     Base.metadata.create_all(bind=engine)
     return engine
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def db(test_db_engine):
     """Get a fresh session for each test."""
     SessionLocal = sessionmaker(bind=test_db_engine)
     session = SessionLocal()
+
+    # Clear existing data for test isolation
+    session.query(Voucher).delete()
+    session.query(Ledger).delete()
+    session.commit()
 
     # Create test tenant if not exists
     test_api_key = "test-api-key-12345"
