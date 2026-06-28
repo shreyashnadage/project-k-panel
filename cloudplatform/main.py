@@ -17,6 +17,7 @@ from cloudplatform.api.dashboard import router as dashboard_router
 from cloudplatform.auth import router as auth_router
 from cloudplatform.keys import router as device_router
 from cloudplatform.api.commands import router as commands_router
+from cloudplatform.api.companies import router as companies_router
 
 # Setup logging
 logging.basicConfig(
@@ -62,6 +63,7 @@ app.include_router(telemetry_router)
 app.include_router(registration_router)
 app.include_router(dashboard_router)  # Dashboard API for frontend
 app.include_router(commands_router)   # Command channel: cloud → agent
+app.include_router(companies_router)  # Company mappings: tenant → Tally companies
 
 
 # Health check (root)

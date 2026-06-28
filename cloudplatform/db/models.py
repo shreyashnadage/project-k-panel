@@ -302,6 +302,30 @@ class RegistrationAuditLog(Base):
         return f"<RegistrationAuditLog {self.action}>"
 
 
+class CompanyMapping(Base):
+    """Maps a client to one or more Tally company names on a specific device."""
+    __tablename__ = "company_mappings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(String(36), nullable=False, index=True)
+    device_id = Column(String(36), nullable=False, index=True)
+    company_name = Column(String(500), nullable=False)
+    company_guid = Column(String(255))
+    formal_name = Column(String(500))
+    gst_number = Column(String(50))
+    state = Column(String(100))
+    is_active = Column(Boolean, default=True)
+    last_synced_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("ix_company_mapping_dedup", "client_id", "device_id", "company_name", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<CompanyMapping {self.company_name}>"
+
+
 class SyncCommand(Base):
     """
     Admin-triggered command for on-demand data extraction.

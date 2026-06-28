@@ -21,15 +21,18 @@ logger = logging.getLogger(__name__)
 
 # Map cloud command_type → engine (resource, action)
 COMMAND_TYPE_MAP: Dict[str, Dict[str, str]] = {
-    "sync_ledgers":         {"resource": "ledger",  "action": "pull_all"},
-    "sync_ledgers_by_group":{"resource": "ledger",  "action": "pull_by_group"},
-    "sync_ledger_one":      {"resource": "ledger",  "action": "pull_one"},
-    "sync_groups":          {"resource": "group",   "action": "pull_all"},
-    "sync_vouchers":        {"resource": "voucher", "action": "pull_by_date"},
-    "sync_vouchers_by_type":{"resource": "voucher", "action": "pull_by_type"},
-    "sync_stock":           {"resource": "stock_item", "action": "pull_all"},
-    "sync_stock_by_group":  {"resource": "stock_item", "action": "pull_by_group"},
-    "health_check":         None,   # handled separately
+    "sync_ledgers":          {"resource": "ledger",     "action": "pull_all"},
+    "sync_ledgers_by_group": {"resource": "ledger",     "action": "pull_by_group"},
+    "sync_ledger_one":       {"resource": "ledger",     "action": "pull_one"},
+    "sync_groups":           {"resource": "group",      "action": "pull_all"},
+    "sync_vouchers":         {"resource": "voucher",    "action": "pull_by_date"},
+    "sync_vouchers_by_type": {"resource": "voucher",    "action": "pull_by_type"},
+    "sync_stock":            {"resource": "stock_item", "action": "pull_all"},
+    "sync_stock_by_group":   {"resource": "stock_item", "action": "pull_by_group"},
+    "discover_companies":    {"resource": "company",    "action": "list"},
+    "health_check":          None,   # handled separately
+    "sync_full":             None,   # handled separately — syncs all types for one company
+    "sync_all_companies":    None,   # handled separately — syncs all types for all companies
 }
 
 POLL_INTERVAL_BASE = 15    # seconds
@@ -157,7 +160,22 @@ class CommandPoller:
             )
             return
 
-        # ── data fetch ────────────────────────────────────────────────────────
+        # ── discover_companies: list + register with cloud ────────────────────
+        if command_type == "discover_companies":
+            self._handle_discover_companies(command_id, params)
+            return
+
+        # ── sync_full: all data types for one company ─────────────────────────
+        if command_type == "sync_full":
+            self._handle_sync_full(command_id, params)
+            return
+
+        # ── sync_all_companies: sync_full for every mapped company ────────────
+        if command_type == "sync_all_companies":
+            self._handle_sync_all_companies(command_id, params)
+            return
+
+        # ── single data fetch ─────────────────────────────────────────────────
         mapping = COMMAND_TYPE_MAP.get(command_type)
         if not mapping:
             self._ack_command(
@@ -192,6 +210,164 @@ class CommandPoller:
                 command_id, "failed",
                 error_message=result.error,
             )
+
+    # ── Multi-company handlers ─────────────────────────────────────────────
+
+    def _handle_discover_companies(self, command_id: str, params: Dict) -> None:
+        """Discover Tally companies and register them with the cloud."""
+        result = self.engine.execute({
+            "resource": "company", "action": "list",
+            "company_name": "", "company_id": "", "params": params,
+        })
+        if not result.success:
+            self._ack_command(command_id, "failed", error_message=result.error)
+            return
+
+        companies_payload = []
+        for comp in result.data:
+            name = comp.get("name", "")
+            if not name:
+                continue
+            detail = self.engine.execute({
+                "resource": "company", "action": "details",
+                "company_name": name, "company_id": "", "params": {},
+            })
+            info = detail.data[0] if detail.success and detail.data else {}
+            companies_payload.append({
+                "device_id": self.device_id,
+                "company_name": name,
+                "company_guid": info.get("guid"),
+                "formal_name": info.get("formal_name"),
+                "gst_number": info.get("gst_number"),
+                "state": info.get("state"),
+            })
+
+        if companies_payload:
+            try:
+                resp = requests.post(
+                    f"{self.cloud_base_url}/v1/companies",
+                    json={"device_id": self.device_id, "companies": companies_payload},
+                    headers=self._auth_headers(),
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                logger.info(f"[Poller] Registered {len(companies_payload)} company(ies) with cloud")
+            except Exception as e:
+                logger.error(f"[Poller] Failed to register companies: {e}")
+
+        self._ack_command(
+            command_id, "completed",
+            result={"companies_found": len(companies_payload),
+                    "names": [c["company_name"] for c in companies_payload]},
+        )
+
+    def _sync_full_for_company(self, company_name: str, company_id: str) -> Dict[str, Any]:
+        """Run all sync operations for a single company. Returns summary dict."""
+        from datetime import datetime, timedelta
+        summary: Dict[str, Any] = {"company": company_name, "resources": {}}
+
+        # Ledgers
+        r = self.engine.execute({
+            "resource": "ledger", "action": "pull_all",
+            "company_name": company_name, "company_id": company_id, "params": {},
+        })
+        summary["resources"]["ledgers"] = r.record_count
+        if r.success and r.data:
+            self._upload_data(r, company_name)
+
+        # Groups
+        r = self.engine.execute({
+            "resource": "group", "action": "pull_all",
+            "company_name": company_name, "company_id": company_id, "params": {},
+        })
+        summary["resources"]["groups"] = r.record_count
+        if r.success and r.data:
+            self._upload_data(r, company_name)
+
+        # Vouchers (last 90 days)
+        today = datetime.today()
+        from_d = (today - timedelta(days=90)).strftime("%Y%m%d")
+        to_d = today.strftime("%Y%m%d")
+        r = self.engine.execute({
+            "resource": "voucher", "action": "pull_by_date",
+            "company_name": company_name, "company_id": company_id,
+            "params": {"from_date": from_d, "to_date": to_d},
+        })
+        summary["resources"]["vouchers"] = r.record_count
+        if r.success and r.data:
+            self._upload_data(r, company_name)
+
+        # Stock items
+        r = self.engine.execute({
+            "resource": "stock_item", "action": "pull_all",
+            "company_name": company_name, "company_id": company_id, "params": {},
+        })
+        summary["resources"]["stock_items"] = r.record_count
+        if r.success and r.data:
+            self._upload_data(r, company_name)
+
+        # Stock groups
+        r = self.engine.execute({
+            "resource": "stock_group", "action": "pull_all",
+            "company_name": company_name, "company_id": company_id, "params": {},
+        })
+        summary["resources"]["stock_groups"] = r.record_count
+        if r.success and r.data:
+            self._upload_data(r, company_name)
+
+        total = sum(summary["resources"].values())
+        summary["total_records"] = total
+        return summary
+
+    def _handle_sync_full(self, command_id: str, params: Dict) -> None:
+        """Sync all data types for a single company."""
+        company_name = params.get("company_name", "")
+        company_id = params.get("company_id", "")
+        if not company_name:
+            self._ack_command(command_id, "failed",
+                              error_message="company_name is required for sync_full")
+            return
+
+        summary = self._sync_full_for_company(company_name, company_id)
+        self._ack_command(command_id, "completed", result=summary)
+
+    def _handle_sync_all_companies(self, command_id: str, params: Dict) -> None:
+        """Sync all data types for all mapped companies from the cloud."""
+        try:
+            resp = requests.get(
+                f"{self.cloud_base_url}/v1/companies",
+                params={"device_id": self.device_id},
+                headers=self._auth_headers(),
+                timeout=15,
+            )
+            resp.raise_for_status()
+            companies = resp.json().get("companies", [])
+        except Exception as e:
+            self._ack_command(command_id, "failed",
+                              error_message=f"Failed to fetch company list: {e}")
+            return
+
+        if not companies:
+            self._ack_command(command_id, "failed",
+                              error_message="No companies mapped. Run discover_companies first.")
+            return
+
+        all_summaries = []
+        for comp in companies:
+            name = comp.get("company_name", "")
+            cid = comp.get("client_id", "")
+            if not name:
+                continue
+            logger.info(f"[Poller] sync_all_companies: syncing '{name}'")
+            summary = self._sync_full_for_company(name, cid)
+            all_summaries.append(summary)
+
+        total = sum(s["total_records"] for s in all_summaries)
+        self._ack_command(command_id, "completed", result={
+            "companies_synced": len(all_summaries),
+            "total_records": total,
+            "details": all_summaries,
+        })
 
     def _upload_data(self, result: CommandResult, company_name: str = "") -> None:
         """POST data records to cloud ingest endpoint."""

@@ -32,7 +32,9 @@ ALLOWED_COMMAND_TYPES = {
     "sync_vouchers_by_type",    # Specific voucher type + date range
     "sync_stock",               # All stock items
     "sync_stock_by_group",      # Stock items in a group
-    "sync_full",                # Full scheduled sync cycle
+    "sync_full",                # Full sync cycle for one company (all data types)
+    "sync_all_companies",       # Full sync for ALL mapped companies
+    "discover_companies",       # Agent discovers and registers Tally companies
     "health_check",             # Agent responds with Tally reachability, no data extracted
 }
 

@@ -30,6 +30,7 @@ from .fetcher.ledger import LedgerFetcher
 from .fetcher.voucher import VoucherFetcher
 from .fetcher.stock import StockFetcher
 from .fetcher.group import GroupFetcher
+from .fetcher.company import CompanyFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ ALLOWED_OPS: Dict[str, set] = {
     "voucher":     {"pull_by_date", "pull_by_type"},
     "stock_item":  {"pull_all", "pull_by_group", "pull_zero_balance"},
     "stock_group": {"pull_all"},
+    "company":     {"list", "details"},
 }
 
 
@@ -83,11 +85,12 @@ class CommandEngine:
     """
 
     def __init__(self, tally_url: str = "http://localhost:9000"):
-        self._client = TallyHTTPClient(base_url=tally_url)
+        self._client  = TallyHTTPClient(base_url=tally_url)
         self._ledger  = LedgerFetcher(self._client)
         self._voucher = VoucherFetcher(self._client)
         self._stock   = StockFetcher(self._client)
         self._group   = GroupFetcher(self._client)
+        self._company = CompanyFetcher(self._client)
 
     def execute(self, command: Dict[str, Any]) -> CommandResult:
         """
@@ -111,7 +114,7 @@ class CommandEngine:
                 resource=resource, action=action, company_id=company_id
             )
 
-        if not company:
+        if not company and resource != "company":
             return CommandResult(
                 success=False, error="company_name is required",
                 resource=resource, action=action, company_id=company_id
@@ -155,6 +158,8 @@ class CommandEngine:
             return self._dispatch_stock(action, company, params)
         if resource == "stock_group":
             return self._stock.pull_all_groups(company)
+        if resource == "company":
+            return self._dispatch_company(action, company, params)
         raise ValueError(f"Unknown resource: {resource}")
 
     def _dispatch_ledger(self, action, company, params):
@@ -194,3 +199,10 @@ class CommandEngine:
             return self._stock.pull_by_group(company, params["group"])
         if action == "pull_zero_balance":
             return self._stock.pull_zero_balance(company)
+
+    def _dispatch_company(self, action, company, params):
+        if action == "list":
+            return self._company.list_companies()
+        if action == "details":
+            r = self._company.get_company_details(company)
+            return [r] if r else []
