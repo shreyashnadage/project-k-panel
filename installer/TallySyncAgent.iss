@@ -116,14 +116,34 @@ Filename: "{app}\vendor\nssm.exe"; \
   StatusMsg: "Starting Tally Sync Agent service..."
 
 [UninstallRun]
-; Stop and remove service on uninstall
+; Step 1: Stop the Windows service
 Filename: "{app}\vendor\nssm.exe"; \
   Parameters: "stop ""{#ServiceName}"""; \
   Flags: runhidden waituntilterminated; RunOnceId: "StopService"
 
+; Step 2: Remove the Windows service registration
 Filename: "{app}\vendor\nssm.exe"; \
   Parameters: "remove ""{#ServiceName}"" confirm"; \
   Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
+
+; Step 3: Remove OTA scheduled task (created by updater on restart)
+Filename: "{sys}\schtasks.exe"; \
+  Parameters: "/delete /tn ""TallySyncAgent_Restart"" /f"; \
+  Flags: runhidden waituntilterminated; RunOnceId: "RemoveOTATask"
+
+; Step 4: Remove credentials from Windows Credential Manager
+Filename: "{app}\vendor\nssm.exe"; \
+  Description: "Removing stored credentials..."; \
+  Parameters: ""; \
+  Flags: runhidden waituntilterminated; RunOnceId: "RemoveCredentials"
+
+[UninstallDelete]
+; Delete log files (Inno Setup won't remove dirs containing unlisted files)
+Type: filesandordirs; Name: "{app}\logs"
+; Delete any leftover OTA download temp files
+Type: filesandordirs; Name: "{app}\.update.lock"
+Type: files;          Name: "{app}\*.backup.exe"
+Type: files;          Name: "{app}\*.new.exe"
 
 [Code]
 { -----------------------------------------------------------------------
@@ -155,5 +175,31 @@ begin
     LogDir := ExpandConstant('{app}\logs');
     if not DirExists(LogDir) then
       CreateDir(LogDir);
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  ResultCode: Integer;
+begin
+  if CurUninstallStep = usUninstall then begin
+    { Remove credentials from Windows Credential Manager via cmdkey }
+    Exec(ExpandConstant('{sys}\cmdkey.exe'),
+         '/delete:TallySyncAgent',
+         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    { Ask user whether to keep or delete their sync logs }
+    if MsgBox(
+      'Do you want to delete all Tally Sync log files?' + #13#10 +
+      '(Stored in ' + ExpandConstant('{app}\logs') + ')',
+      mbConfirmation, MB_YESNO
+    ) = IDNO then begin
+      { User chose to keep logs — remove the [UninstallDelete] entry by
+        moving logs out of the app dir into the user''s Documents }
+      CreateDir(ExpandConstant('{userdocs}\TallySyncAgent'));
+      Exec(ExpandConstant('{sys}\robocopy.exe'),
+           ExpandConstant('"{app}\logs" "{userdocs}\TallySyncAgent\logs" /MOVE /E /NFL /NDL'),
+           '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    end;
   end;
 end;
