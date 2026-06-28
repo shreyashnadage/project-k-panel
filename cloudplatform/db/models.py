@@ -124,6 +124,72 @@ class SyncAuditLog(Base):
         return f"<AuditLog {self.action}>"
 
 
+class AccountGroup(Base):
+    """Account group hierarchy from Tally."""
+    __tablename__ = "account_groups"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(36), nullable=False, index=True)
+    company_guid = Column(String(255), nullable=False)
+    group_guid = Column(String(255), nullable=False)
+    name = Column(String(500), nullable=False)
+    parent = Column(String(500))
+    is_revenue = Column(String(10))
+    received_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("ix_group_dedup", "tenant_id", "company_guid", "group_guid", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<AccountGroup {self.name}>"
+
+
+class StockItem(Base):
+    """Inventory stock items from Tally."""
+    __tablename__ = "stock_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(36), nullable=False, index=True)
+    company_guid = Column(String(255), nullable=False)
+    item_guid = Column(String(255), nullable=False)
+    name = Column(String(500), nullable=False)
+    parent = Column(String(500))
+    base_units = Column(String(100))
+    opening_balance = Column(String(30))
+    closing_balance = Column(String(30))
+    hsn_code = Column(String(50))
+    gst_rate = Column(String(20))
+    received_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("ix_stock_dedup", "tenant_id", "company_guid", "item_guid", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<StockItem {self.name}>"
+
+
+class StockGroup(Base):
+    """Inventory stock groups from Tally."""
+    __tablename__ = "stock_groups"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(36), nullable=False, index=True)
+    company_guid = Column(String(255), nullable=False)
+    group_guid = Column(String(255), nullable=False)
+    name = Column(String(500), nullable=False)
+    parent = Column(String(500))
+    received_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("ix_stockgroup_dedup", "tenant_id", "company_guid", "group_guid", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<StockGroup {self.name}>"
+
+
 # ============================================================
 # CLIENT REGISTRATION MODELS (Phase 4: Onboarding System)
 # ============================================================

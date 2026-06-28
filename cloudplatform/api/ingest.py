@@ -14,9 +14,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 
-from cloudplatform.db.models import Tenant, Ledger, Voucher, SyncAuditLog
+from cloudplatform.db.models import (
+    Tenant, Ledger, Voucher, SyncAuditLog, DeviceRegistration, Client,
+    AccountGroup, StockItem, StockGroup,
+)
 from cloudplatform.db.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -98,16 +101,38 @@ class IngestResponse(BaseModel):
 # ────────────────────────────────────────────────────────────────────────────
 
 def verify_api_key(x_api_key: str = Header(...), db: Session = Depends(get_db)) -> Tenant:
-    """Verify API key and return authenticated tenant."""
+    """
+    Verify API key. Accepts two key types:
+    1. Tenant API key (SHA-256 hashed in Tenant.api_key_hash)
+    2. Device API key (plain text in DeviceRegistration.api_key) — used by registered agents.
+       For device keys, returns a synthetic Tenant-like object built from the Client record.
+    """
+    # Path 1: legacy tenant key (hashed)
     key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
     tenant = db.query(Tenant).filter(
         Tenant.api_key_hash == key_hash,
-        Tenant.is_active == True
+        Tenant.is_active == True,
     ).first()
+    if tenant:
+        return tenant
 
-    if not tenant:
-        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
-    return tenant
+    # Path 2: device registration key (plain text stored in DeviceRegistration)
+    device = db.query(DeviceRegistration).filter(
+        DeviceRegistration.api_key == x_api_key,
+        DeviceRegistration.status == "active",
+    ).first()
+    if device:
+        # Build a minimal Tenant stand-in so callers work without change
+        client = db.query(Client).filter(Client.client_id == device.client_id).first()
+        synthetic = Tenant(
+            id=device.client_id,
+            name=client.company_name if client else device.device_name,
+            api_key_hash=key_hash,
+            is_active=True,
+        )
+        return synthetic
+
+    raise HTTPException(status_code=401, detail="Invalid or inactive API key")
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -128,8 +153,7 @@ def ingest_ledgers(batch: LedgerBatch, tenant: Tenant = Depends(verify_api_key),
 
     for ledger in batch.ledgers:
         try:
-            # Use ON CONFLICT DO NOTHING for idempotent insert
-            stmt = pg_insert(Ledger).values(
+            row = Ledger(
                 tenant_id=tenant.id,
                 company_guid=ledger.company_guid,
                 ledger_guid=ledger.ledger_guid,
@@ -138,35 +162,31 @@ def ingest_ledgers(batch: LedgerBatch, tenant: Tenant = Depends(verify_api_key),
                 ledger_type=ledger.ledger_type,
                 opening_balance=ledger.opening_balance,
                 closing_balance=ledger.closing_balance,
-            ).on_conflict_do_nothing(
-                index_elements=["tenant_id", "company_guid", "ledger_guid"]
             )
-
-            result = db.execute(stmt)
-            if result.rowcount == 1:
-                accepted += 1
-                # Log successful insert
-                db.add(SyncAuditLog(
-                    tenant_id=tenant.id,
-                    company_guid=ledger.company_guid,
-                    record_type="ledger",
-                    record_guid=ledger.ledger_guid,
-                    action="inserted",
-                    transmitted_at=datetime.now(timezone.utc),
-                ))
-            else:
-                duplicates += 1
-                # Log duplicate
-                db.add(SyncAuditLog(
-                    tenant_id=tenant.id,
-                    company_guid=ledger.company_guid,
-                    record_type="ledger",
-                    record_guid=ledger.ledger_guid,
-                    action="duplicate",
-                    transmitted_at=datetime.now(timezone.utc),
-                ))
-
+            db.add(row)
+            db.flush()
+            accepted += 1
+            db.add(SyncAuditLog(
+                tenant_id=tenant.id,
+                company_guid=ledger.company_guid,
+                record_type="ledger",
+                record_guid=ledger.ledger_guid,
+                action="inserted",
+                transmitted_at=datetime.now(timezone.utc),
+            ))
+        except IntegrityError:
+            db.rollback()
+            duplicates += 1
+            db.add(SyncAuditLog(
+                tenant_id=tenant.id,
+                company_guid=ledger.company_guid,
+                record_type="ledger",
+                record_guid=ledger.ledger_guid,
+                action="duplicate",
+                transmitted_at=datetime.now(timezone.utc),
+            ))
         except Exception as e:
+            db.rollback()
             errors += 1
             logger.error(f"Error ingesting ledger {ledger.ledger_guid}: {e}")
 
@@ -195,16 +215,13 @@ def ingest_vouchers(batch: VoucherBatch, tenant: Tenant = Depends(verify_api_key
 
     for voucher in batch.vouchers:
         try:
-            # Prepare raw data JSON
             raw_data = {
                 "voucher_type": voucher.voucher_type,
                 "party": voucher.party,
                 "narration": voucher.narration,
                 "amount": voucher.amount,
             }
-
-            # Use ON CONFLICT DO NOTHING for idempotent insert
-            stmt = pg_insert(Voucher).values(
+            row = Voucher(
                 tenant_id=tenant.id,
                 company_guid=voucher.company_guid,
                 voucher_guid=voucher.voucher_guid,
@@ -216,35 +233,31 @@ def ingest_vouchers(batch: VoucherBatch, tenant: Tenant = Depends(verify_api_key
                 amount=voucher.amount,
                 raw_data=json.dumps(raw_data, ensure_ascii=False),
                 agent_version=voucher.agent_version,
-            ).on_conflict_do_nothing(
-                index_elements=["tenant_id", "company_guid", "voucher_guid"]
             )
-
-            result = db.execute(stmt)
-            if result.rowcount == 1:
-                accepted += 1
-                # Log successful insert
-                db.add(SyncAuditLog(
-                    tenant_id=tenant.id,
-                    company_guid=voucher.company_guid,
-                    record_type="voucher",
-                    record_guid=voucher.voucher_guid,
-                    action="inserted",
-                    transmitted_at=datetime.now(timezone.utc),
-                ))
-            else:
-                duplicates += 1
-                # Log duplicate
-                db.add(SyncAuditLog(
-                    tenant_id=tenant.id,
-                    company_guid=voucher.company_guid,
-                    record_type="voucher",
-                    record_guid=voucher.voucher_guid,
-                    action="duplicate",
-                    transmitted_at=datetime.now(timezone.utc),
-                ))
-
+            db.add(row)
+            db.flush()
+            accepted += 1
+            db.add(SyncAuditLog(
+                tenant_id=tenant.id,
+                company_guid=voucher.company_guid,
+                record_type="voucher",
+                record_guid=voucher.voucher_guid,
+                action="inserted",
+                transmitted_at=datetime.now(timezone.utc),
+            ))
+        except IntegrityError:
+            db.rollback()
+            duplicates += 1
+            db.add(SyncAuditLog(
+                tenant_id=tenant.id,
+                company_guid=voucher.company_guid,
+                record_type="voucher",
+                record_guid=voucher.voucher_guid,
+                action="duplicate",
+                transmitted_at=datetime.now(timezone.utc),
+            ))
         except Exception as e:
+            db.rollback()
             errors += 1
             logger.error(f"Error ingesting voucher {voucher.voucher_guid}: {e}")
 
@@ -258,6 +271,148 @@ def ingest_vouchers(batch: VoucherBatch, tenant: Tenant = Depends(verify_api_key
     )
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# Groups Ingest
+# ────────────────────────────────────────────────────────────────────────────
+
+class GroupPayload(BaseModel):
+    company_guid: str
+    company_name: str
+    group_guid: str
+    name: str
+    parent: Optional[str] = None
+    is_revenue: Optional[str] = None
+
+
+class GroupBatch(BaseModel):
+    tenant_id: str
+    groups: List[GroupPayload]
+
+
+@router.post("/v1/groups", response_model=IngestResponse)
+def ingest_groups(batch: GroupBatch, tenant: Tenant = Depends(verify_api_key), db: Session = Depends(get_db)):
+    if tenant.id != batch.tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant ID mismatch")
+
+    accepted = duplicates = errors = 0
+    for g in batch.groups:
+        try:
+            db.add(AccountGroup(
+                tenant_id=tenant.id, company_guid=g.company_guid,
+                group_guid=g.group_guid, name=g.name,
+                parent=g.parent, is_revenue=g.is_revenue,
+            ))
+            db.flush()
+            accepted += 1
+        except IntegrityError:
+            db.rollback()
+            duplicates += 1
+        except Exception as e:
+            db.rollback()
+            errors += 1
+            logger.error(f"Error ingesting group {g.group_guid}: {e}")
+
+    db.commit()
+    return IngestResponse(accepted=accepted, duplicates=duplicates, errors=errors,
+                          message=f"Groups: {accepted} new, {duplicates} duplicates, {errors} errors")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stock Items Ingest
+# ────────────────────────────────────────────────────────────────────────────
+
+class StockItemPayload(BaseModel):
+    company_guid: str
+    company_name: str
+    item_guid: str
+    name: str
+    parent: Optional[str] = None
+    base_units: Optional[str] = None
+    opening_balance: Optional[str] = None
+    closing_balance: Optional[str] = None
+    hsn_code: Optional[str] = None
+    gst_rate: Optional[str] = None
+
+
+class StockItemBatch(BaseModel):
+    tenant_id: str
+    stock_items: List[StockItemPayload]
+
+
+@router.post("/v1/stock-items", response_model=IngestResponse)
+def ingest_stock_items(batch: StockItemBatch, tenant: Tenant = Depends(verify_api_key), db: Session = Depends(get_db)):
+    if tenant.id != batch.tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant ID mismatch")
+
+    accepted = duplicates = errors = 0
+    for s in batch.stock_items:
+        try:
+            db.add(StockItem(
+                tenant_id=tenant.id, company_guid=s.company_guid,
+                item_guid=s.item_guid, name=s.name, parent=s.parent,
+                base_units=s.base_units, opening_balance=s.opening_balance,
+                closing_balance=s.closing_balance, hsn_code=s.hsn_code,
+                gst_rate=s.gst_rate,
+            ))
+            db.flush()
+            accepted += 1
+        except IntegrityError:
+            db.rollback()
+            duplicates += 1
+        except Exception as e:
+            db.rollback()
+            errors += 1
+            logger.error(f"Error ingesting stock item {s.item_guid}: {e}")
+
+    db.commit()
+    return IngestResponse(accepted=accepted, duplicates=duplicates, errors=errors,
+                          message=f"Stock items: {accepted} new, {duplicates} duplicates, {errors} errors")
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Stock Groups Ingest
+# ────────────────────────────────────────────────────────────────────────────
+
+class StockGroupPayload(BaseModel):
+    company_guid: str
+    company_name: str
+    group_guid: str
+    name: str
+    parent: Optional[str] = None
+
+
+class StockGroupBatch(BaseModel):
+    tenant_id: str
+    stock_groups: List[StockGroupPayload]
+
+
+@router.post("/v1/stock-groups", response_model=IngestResponse)
+def ingest_stock_groups(batch: StockGroupBatch, tenant: Tenant = Depends(verify_api_key), db: Session = Depends(get_db)):
+    if tenant.id != batch.tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant ID mismatch")
+
+    accepted = duplicates = errors = 0
+    for g in batch.stock_groups:
+        try:
+            db.add(StockGroup(
+                tenant_id=tenant.id, company_guid=g.company_guid,
+                group_guid=g.group_guid, name=g.name, parent=g.parent,
+            ))
+            db.flush()
+            accepted += 1
+        except IntegrityError:
+            db.rollback()
+            duplicates += 1
+        except Exception as e:
+            db.rollback()
+            errors += 1
+            logger.error(f"Error ingesting stock group {g.group_guid}: {e}")
+
+    db.commit()
+    return IngestResponse(accepted=accepted, duplicates=duplicates, errors=errors,
+                          message=f"Stock groups: {accepted} new, {duplicates} duplicates, {errors} errors")
+
+
 @router.get("/health")
 def health_check():
     """Health check endpoint."""
@@ -267,11 +422,45 @@ def health_check():
 @router.get("/v1/stats")
 def get_stats(tenant: Tenant = Depends(verify_api_key), db: Session = Depends(get_db)):
     """Get ingest statistics for tenant."""
-    voucher_count = db.query(Voucher).filter(Tenant.id == tenant.id).count()
-    ledger_count = db.query(Ledger).filter(Tenant.id == tenant.id).count()
-
     return {
         "tenant_id": tenant.id,
-        "total_vouchers": voucher_count,
-        "total_ledgers": ledger_count,
+        "total_ledgers":      db.query(Ledger).filter(Ledger.tenant_id == tenant.id).count(),
+        "total_vouchers":     db.query(Voucher).filter(Voucher.tenant_id == tenant.id).count(),
+        "total_groups":       db.query(AccountGroup).filter(AccountGroup.tenant_id == tenant.id).count(),
+        "total_stock_items":  db.query(StockItem).filter(StockItem.tenant_id == tenant.id).count(),
+        "total_stock_groups": db.query(StockGroup).filter(StockGroup.tenant_id == tenant.id).count(),
     }
+
+
+@router.get("/v1/data/{resource}")
+def query_data(
+    resource: str,
+    limit: int = 50,
+    tenant: Tenant = Depends(verify_api_key),
+    db: Session = Depends(get_db),
+):
+    """Query stored data by resource type."""
+    model_map = {
+        "ledgers": Ledger,
+        "vouchers": Voucher,
+        "groups": AccountGroup,
+        "stock-items": StockItem,
+        "stock-groups": StockGroup,
+    }
+    model = model_map.get(resource)
+    if not model:
+        raise HTTPException(status_code=404, detail=f"Unknown resource: {resource}")
+
+    rows = db.query(model).filter(
+        model.tenant_id == tenant.id
+    ).limit(limit).all()
+
+    results = []
+    for row in rows:
+        d = {c.name: getattr(row, c.name) for c in row.__table__.columns}
+        for k, v in d.items():
+            if isinstance(v, datetime):
+                d[k] = v.isoformat()
+        results.append(d)
+
+    return {"resource": resource, "count": len(results), "data": results}

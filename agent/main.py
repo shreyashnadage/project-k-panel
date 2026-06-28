@@ -51,24 +51,23 @@ def main() -> None:
         cloud_base_url=Config.CLOUD_URL,
         device_id=Config.DEVICE_ID,
         api_key=Config.API_KEY,
+        tenant_id=Config.TENANT_ID,
         engine=engine,
         poll_interval=Config.POLL_INTERVAL_SECONDS,
     )
     poller.start()
 
-    def _shutdown(sig, _frame):
-        logger.info(f"Signal {sig} received — stopping…")
-        poller.stop()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT,  _shutdown)
-    signal.signal(signal.SIGTERM, _shutdown)
-
     logger.info(f"Agent running. Polling {Config.CLOUD_URL} every {Config.POLL_INTERVAL_SECONDS}s")
     logger.info("Press Ctrl-C to stop.")
 
-    # Keep main thread alive
-    signal.pause()
+    try:
+        while True:
+            import time
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Ctrl-C received — stopping…")
+        poller.stop()
+        sys.exit(0)
 
 
 if __name__ == "__main__":

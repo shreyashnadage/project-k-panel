@@ -24,9 +24,14 @@ router = APIRouter(tags=["commands"])
 COMMAND_TTL_HOURS = 24
 
 ALLOWED_COMMAND_TYPES = {
-    "sync_vouchers",            # All vouchers (last 30 days) for a company
-    "sync_vouchers_by_type",    # Specific voucher type + optional date range
     "sync_ledgers",             # Full ledger master for a company
+    "sync_ledgers_by_group",    # Ledgers filtered by parent group
+    "sync_ledger_one",          # Single ledger by name
+    "sync_groups",              # Account group hierarchy
+    "sync_vouchers",            # All vouchers in a date range
+    "sync_vouchers_by_type",    # Specific voucher type + date range
+    "sync_stock",               # All stock items
+    "sync_stock_by_group",      # Stock items in a group
     "sync_full",                # Full scheduled sync cycle
     "health_check",             # Agent responds with Tally reachability, no data extracted
 }

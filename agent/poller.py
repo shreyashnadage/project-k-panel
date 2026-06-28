@@ -49,12 +49,14 @@ class CommandPoller:
         cloud_base_url: str,
         device_id: str,
         api_key: str,
+        tenant_id: str = "",
         engine: Optional[CommandEngine] = None,
         poll_interval: int = POLL_INTERVAL_BASE,
     ):
         self.cloud_base_url = cloud_base_url.rstrip("/")
         self.device_id      = device_id
         self.api_key        = api_key
+        self.tenant_id      = tenant_id or device_id
         self.engine         = engine or CommandEngine()
         self.poll_interval  = poll_interval
         self._stop_event    = threading.Event()
@@ -95,11 +97,14 @@ class CommandPoller:
 
     # ── Cloud API calls ───────────────────────────────────────────────────────
 
+    def _auth_headers(self) -> Dict[str, str]:
+        return {"X-API-Key": self.api_key}
+
     def _poll_pending(self) -> list:
         resp = requests.get(
             f"{self.cloud_base_url}/v1/commands/pending",
             params={"device_id": self.device_id},
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            headers=self._auth_headers(),
             timeout=25,
         )
         resp.raise_for_status()
@@ -125,7 +130,7 @@ class CommandPoller:
             resp = requests.patch(
                 f"{self.cloud_base_url}/v1/commands/{command_id}",
                 json=body,
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers=self._auth_headers(),
                 timeout=15,
             )
             resp.raise_for_status()
@@ -179,55 +184,135 @@ class CommandPoller:
                     "resource": result.resource,
                     "action": result.action,
                     "company_id": result.company_id,
-                    # data NOT sent in ack — uploaded separately via ingest API
                 },
             )
-            # Upload the actual data records
-            self._upload_data(result)
+            self._upload_data(result, company_name=engine_cmd["company_name"])
         else:
             self._ack_command(
                 command_id, "failed",
                 error_message=result.error,
             )
 
-    def _upload_data(self, result: CommandResult) -> None:
+    def _upload_data(self, result: CommandResult, company_name: str = "") -> None:
         """POST data records to cloud ingest endpoint."""
         if not result.data:
             return
 
-        endpoint_map = {
-            "ledger":      "/v1/ingest/ledgers",
-            "group":       "/v1/ingest/groups",
-            "voucher":     "/v1/ingest/vouchers",
-            "stock_item":  "/v1/ingest/stock",
-            "stock_group": "/v1/ingest/stock-groups",
-        }
+        upload_fn = {
+            "ledger":      self._upload_ledgers,
+            "voucher":     self._upload_vouchers,
+            "group":       self._upload_groups,
+            "stock_item":  self._upload_stock_items,
+            "stock_group": self._upload_stock_groups,
+        }.get(result.resource)
 
-        endpoint = endpoint_map.get(result.resource)
-        if not endpoint:
-            logger.warning(f"[Poller] No ingest endpoint for resource '{result.resource}'")
-            return
+        if upload_fn:
+            upload_fn(result, company_name)
+        else:
+            logger.info(
+                f"[Poller] No ingest endpoint for '{result.resource}' yet — "
+                f"{result.record_count} records fetched but not uploaded"
+            )
 
-        payload = {
-            "company_id": result.company_id,
-            "records":    result.data,
-        }
+    def _upload_ledgers(self, result: CommandResult, company_name: str) -> None:
+        company_guid = result.company_id or company_name
+        ledgers = []
+        for r in result.data:
+            ledgers.append({
+                "company_guid": company_guid,
+                "company_name": company_name,
+                "ledger_guid": r.get("guid", r.get("name", "")),
+                "name": r.get("name", ""),
+                "parent": r.get("parent"),
+                "ledger_type": r.get("ledger_type"),
+                "opening_balance": r.get("opening_balance"),
+                "closing_balance": r.get("closing_balance"),
+            })
 
+        payload = {"tenant_id": self.tenant_id, "ledgers": ledgers}
+        self._post_ingest("/v1/ledgers", payload, "ledger", len(ledgers))
+
+    def _upload_vouchers(self, result: CommandResult, company_name: str) -> None:
+        company_guid = result.company_id or company_name
+        vouchers = []
+        for r in result.data:
+            date_val = r.get("date") or "1900-01-01"
+            vouchers.append({
+                "company_guid": company_guid,
+                "company_name": company_name,
+                "voucher_guid": r.get("guid", r.get("voucher_number", "")),
+                "voucher_type": r.get("voucher_type", "Journal"),
+                "voucher_number": r.get("voucher_number"),
+                "date": date_val,
+                "party": r.get("party"),
+                "narration": r.get("narration"),
+                "amount": r.get("amount_dr") or r.get("amount_cr") or r.get("amount"),
+            })
+
+        payload = {"tenant_id": self.tenant_id, "vouchers": vouchers}
+        self._post_ingest("/v1/vouchers", payload, "voucher", len(vouchers))
+
+    def _upload_groups(self, result: CommandResult, company_name: str) -> None:
+        company_guid = result.company_id or company_name
+        groups = []
+        for r in result.data:
+            groups.append({
+                "company_guid": company_guid,
+                "company_name": company_name,
+                "group_guid": r.get("guid", r.get("name", "")),
+                "name": r.get("name", ""),
+                "parent": r.get("parent"),
+                "is_revenue": r.get("is_revenue"),
+            })
+        payload = {"tenant_id": self.tenant_id, "groups": groups}
+        self._post_ingest("/v1/groups", payload, "group", len(groups))
+
+    def _upload_stock_items(self, result: CommandResult, company_name: str) -> None:
+        company_guid = result.company_id or company_name
+        items = []
+        for r in result.data:
+            items.append({
+                "company_guid": company_guid,
+                "company_name": company_name,
+                "item_guid": r.get("guid", r.get("name", "")),
+                "name": r.get("name", ""),
+                "parent": r.get("parent"),
+                "base_units": r.get("base_units"),
+                "opening_balance": r.get("opening_balance"),
+                "closing_balance": r.get("closing_balance"),
+                "hsn_code": r.get("hsn_code"),
+                "gst_rate": r.get("gst_rate"),
+            })
+        payload = {"tenant_id": self.tenant_id, "stock_items": items}
+        self._post_ingest("/v1/stock-items", payload, "stock_item", len(items))
+
+    def _upload_stock_groups(self, result: CommandResult, company_name: str) -> None:
+        company_guid = result.company_id or company_name
+        groups = []
+        for r in result.data:
+            groups.append({
+                "company_guid": company_guid,
+                "company_name": company_name,
+                "group_guid": r.get("guid", r.get("name", "")),
+                "name": r.get("name", ""),
+                "parent": r.get("parent"),
+            })
+        payload = {"tenant_id": self.tenant_id, "stock_groups": groups}
+        self._post_ingest("/v1/stock-groups", payload, "stock_group", len(groups))
+
+    def _post_ingest(self, endpoint: str, payload: dict, label: str, count: int) -> None:
         try:
             resp = requests.post(
                 f"{self.cloud_base_url}{endpoint}",
                 json=payload,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers=self._auth_headers(),
                 timeout=60,
             )
             resp.raise_for_status()
+            body = resp.json()
             logger.info(
-                f"[Poller] Uploaded {result.record_count} {result.resource} records "
-                f"for company {result.company_id}"
+                f"[Poller] Uploaded {count} {label}(s) — "
+                f"accepted={body.get('accepted')}, duplicates={body.get('duplicates')}"
             )
         except Exception as e:
-            logger.error(f"[Poller] Upload failed for {result.resource}: {e}")
-            # TODO Phase 3: queue locally and retry
+            logger.error(f"[Poller] Upload failed for {label}: {e}")

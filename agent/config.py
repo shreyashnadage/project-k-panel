@@ -21,9 +21,10 @@ class Config:
     TALLY_URL: str = os.environ.get("TALLY_URL", "http://localhost:9000")
 
     # ── Cloud platform ────────────────────────────────────────────────────────
-    CLOUD_URL: str  = os.environ.get("CLOUD_URL", "http://localhost:8000")
-    API_KEY: str    = os.environ.get("AGENT_API_KEY", "")
-    DEVICE_ID: str  = os.environ.get("AGENT_DEVICE_ID", "")
+    CLOUD_URL: str   = os.environ.get("CLOUD_URL", "http://localhost:8000")
+    API_KEY: str     = os.environ.get("AGENT_API_KEY", "")
+    DEVICE_ID: str   = os.environ.get("AGENT_DEVICE_ID", "")
+    TENANT_ID: str   = os.environ.get("AGENT_TENANT_ID", "")
 
     # ── Poll settings ─────────────────────────────────────────────────────────
     POLL_INTERVAL_SECONDS: int = int(os.environ.get("POLL_INTERVAL", "15"))

@@ -7,6 +7,7 @@ The DayBook XML report is the standard Tally way to get date-range transactions.
 """
 
 import logging
+import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +24,16 @@ def _tally_date(s: str) -> Optional[str]:
     if len(s) == 8 and s.isdigit():
         return f"{s[:4]}-{s[4:6]}-{s[6:]}"
     return s or None
+
+
+def _sanitize_xml(text: str) -> str:
+    """Remove characters that are illegal in XML 1.0."""
+    # Strip invalid XML character references
+    text = re.sub(r"&#x[0-9a-fA-F]{1,2};", "", text)
+    text = re.sub(r"&#[0-9]+;", lambda m: m.group() if int(m.group()[2:-1]) >= 32 else "", text)
+    # Strip raw control characters (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F) except tab/newline/CR
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
+    return text
 
 
 class VoucherFetcher:
@@ -121,6 +132,8 @@ def _parse_daybook(xml_text: str) -> List[Dict[str, Any]]:
         logger.warning(f"DayBook: non-XML response ({xml_text[:100]})")
         return []
 
+    xml_text = _sanitize_xml(xml_text)
+
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError as e:
@@ -157,19 +170,50 @@ def _parse_daybook(xml_text: str) -> List[Dict[str, Any]]:
                 "narration":      narr,
             })
 
-    # Fallback: flat DSPVCHROWDET without DSPDAY wrapper
+    # Fallback: Tally may return full <VOUCHER> elements instead of DSP format
     if not vouchers:
-        for row in root.iter("DSPVCHROWDET"):
-            vtype  = (row.findtext("DSPVCHTYPE") or "").strip()
-            ref    = (row.findtext("DSPVCHREF") or "").strip()
-            party  = (row.findtext("DSPVCHLEDNAME") or "").strip()
-            dr_amt = (row.findtext("DSPVCHDRAMT") or "").strip()
-            cr_amt = (row.findtext("DSPVCHCRAMT") or "").strip()
-            narr   = (row.findtext("DSPVCHNARRATION") or "").strip()
+        for vch in root.iter("VOUCHER"):
+            date_raw = (vch.findtext("DATE") or "").strip()
+            vtype    = (vch.attrib.get("VCHTYPE") or vch.findtext("VOUCHERTYPENAME") or "").strip()
+            ref      = (vch.findtext("VOUCHERNUMBER") or "").strip()
+            guid     = (vch.attrib.get("REMOTEID") or vch.findtext("GUID") or "").strip()
+            narr     = (vch.findtext("NARRATION") or "").strip()
+
+            # Party: first PARTYLEDGERNAME, or first LEDGERNAME in ledger entries
+            party = (vch.findtext("PARTYLEDGERNAME") or "").strip()
+            if not party:
+                ledger_el = vch.find(".//LEDGERENTRIES.LIST/LEDGERNAME")
+                if ledger_el is not None:
+                    party = (ledger_el.text or "").strip()
+
+            # Amount: find the party's ledger entry (largest absolute value)
+            amounts = []
+            for entry_el in vch.findall(".//LEDGERENTRIES.LIST"):
+                amt_el = entry_el.find("AMOUNT")
+                if amt_el is not None and amt_el.text:
+                    try:
+                        amounts.append(float(amt_el.text.strip()))
+                    except ValueError:
+                        pass
+
+            # The total invoice amount is the largest absolute value entry
+            total = max(amounts, key=abs) if amounts else 0.0
+            amount_str = f"{abs(total):.2f}"
+
+            key = (date_raw, vtype, ref, guid or party)
+            if key in seen:
+                continue
+            seen.add(key)
+
             vouchers.append({
-                "date": None, "voucher_type": vtype, "voucher_number": ref,
-                "party": party, "amount_dr": dr_amt, "amount_cr": cr_amt,
-                "narration": narr,
+                "date":           _tally_date(date_raw),
+                "voucher_type":   vtype,
+                "voucher_number": ref,
+                "guid":           guid,
+                "party":          party,
+                "amount_dr":      amount_str if total > 0 else "",
+                "amount_cr":      amount_str if total <= 0 else "",
+                "narration":      narr,
             })
 
     logger.info(f"[VoucherFetcher] Parsed {len(vouchers)} rows from DayBook XML")
