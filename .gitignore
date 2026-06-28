@@ -1,81 +1,38 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-.venv/
-venv/
-ENV/
-env/
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
 
-# IDE
+# next.js
+.next/
+out/
+
+# build
+dist/
+build/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# editor
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# os
 .DS_Store
-
-# Project-specific
-sync_state.json
-queue.db
-queue.db-shm
-queue.db-wal
-extraction_output.json
-*.db
-*.db-shm
-*.db-wal
-.env
-.env.local
-settings.local.json
-
-# Build artifacts
-dist/
-build/
-*.exe
-*.msi
-
-# OS
 Thumbs.db
-.DS_Store
-*.lnk
 
-# Test artifacts
-.coverage
-.pytest_cache/
-htmlcov/
-.tmp/
+# typescript
+*.tsbuildinfo
 
-# Credentials (never commit)
-*.pfx
-*.pem
-certificate.txt
-tally-sync-admin_accessKeys.csv
-tally-sync-admin_credentials.csv
-*.bak
-
-
-# Deployment files
-.deployment/
-.env.deployment
-deployment_summary.txt
-load_test_results*.csv
+# testing
+coverage/
