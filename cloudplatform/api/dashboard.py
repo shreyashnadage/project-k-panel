@@ -6,7 +6,7 @@ Includes KPI metrics, paginated vouchers, and cash flow analysis.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -72,7 +72,7 @@ class TenantConfig(BaseModel):
 # Helper Functions
 # ────────────────────────────────────────────────────────────────────────────
 
-def get_sync_health(db: Session, tenant_id: str) -> tuple[str, Optional[str]]:
+def get_sync_health(db: Session, tenant_id: str) -> Tuple[str, Optional[str]]:
     """
     Determine sync health status.
 
