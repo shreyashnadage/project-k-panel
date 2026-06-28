@@ -23,7 +23,6 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 from agent.orchestrator import SyncOrchestrator
-from agent.updater.manager import UpdateManager, CURRENT_VERSION
 
 
 logger = logging.getLogger(__name__)
@@ -62,10 +61,6 @@ class TallySyncService:
         self.shutdown_event = threading.Event()
         self.next_sync_time = None
         self._command_thread: threading.Thread | None = None
-
-        # OTA: check for updates once per day
-        self._update_manager = UpdateManager(current_version=CURRENT_VERSION)
-        self._next_update_check: datetime = datetime.now()  # check on first wake
 
         self._setup_logging()
 
@@ -112,15 +107,6 @@ class TallySyncService:
         try:
             while self.running:
                 now = datetime.now()
-
-                # OTA update check — runs once per day in background
-                if now >= self._next_update_check:
-                    threading.Thread(
-                        target=self._check_for_update,
-                        daemon=True,
-                        name="OTAUpdateChecker",
-                    ).start()
-                    self._next_update_check = now + timedelta(hours=24)
 
                 # Check if it's time to sync
                 if now >= self.next_sync_time:
@@ -180,16 +166,6 @@ class TallySyncService:
                 time.sleep(1)
 
         logger.info("Command poller stopped")
-
-    def _check_for_update(self):
-        """Run the OTA update check in a daemon thread."""
-        try:
-            logger.info("Checking for agent updates…")
-            applied = self._update_manager.check_and_apply()
-            if not applied:
-                logger.info("Agent is up-to-date")
-        except Exception as e:
-            logger.warning(f"OTA update check failed (non-fatal): {e}")
 
     def _run_sync_cycle(self):
         """Execute one sync cycle (extraction, queue, transmission)."""
