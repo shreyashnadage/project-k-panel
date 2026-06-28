@@ -2,15 +2,17 @@
 ; Produces: TallySyncAgent-Setup-{version}.exe
 ;
 ; Prerequisites:
-;   1. pyinstaller TallySyncAgent.spec --clean   (builds dist\TallySyncAgent.exe + dist\registration_wizard.exe)
-;   2. Download nssm.exe from https://nssm.cc/download -> installer\vendor\nssm.exe
-;   3. iscc installer\TallySyncAgent.iss
+;   1. pyinstaller TallySyncAgent.spec --clean --noconfirm
+;   2. pyinstaller TallySyncService.spec --clean --noconfirm
+;   3. pyinstaller RegistrationWizard.spec --clean --noconfirm
+;   4. "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\TallySyncAgent.iss
 
 #define AppName    "Tally Sync Agent"
-#define AppVersion "0.4.0"
+#define AppVersion "0.5.0"
 #define AppPublisher "Tally Sync Platform"
-#define AppURL      "http://15.206.90.21:8000"
+#define AppURL      "https://tallysync.io"
 #define AppExeName  "TallySyncAgent.exe"
+#define ServiceExe  "TallySyncService.exe"
 #define ServiceName "TallySyncAgent"
 #define WizardExe   "registration_wizard.exe"
 
@@ -39,47 +41,50 @@ VersionInfoVersion={#AppVersion}
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "autostart"; Description: "Start Tally Sync Agent automatically with Windows"; GroupDescription: "Additional options:"
+Name: "installservice"; Description: "Install as Windows service (starts automatically with Windows)"; GroupDescription: "Service options:"; Flags: checkedonce
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional options:"
 
 [Files]
+; Main agent (console-less, for manual runs and tray icon)
 Source: "..\dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; Service exe (console, for SCM integration)
+Source: "..\dist\{#ServiceExe}"; DestDir: "{app}"; Flags: ignoreversion
+; Registration wizard
 Source: "..\dist\{#WizardExe}"; DestDir: "{app}"; Flags: ignoreversion
-; Source: ".\vendor\nssm.exe"; DestDir: "{app}\vendor"; Flags: ignoreversion
-; ^ uncomment after downloading nssm.exe from https://nssm.cc/download
+; Service management script
+Source: ".\service\install_service.ps1"; DestDir: "{app}\tools"; Flags: ignoreversion
+; Config template
 Source: ".\config\agent.env.example"; DestDir: "{app}\config"; DestName: "agent.env"; Flags: onlyifdoesntexist
+
+[Dirs]
+Name: "{app}\logs"; Permissions: everyone-modify
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{group}\Registration Wizard"; Filename: "{app}\{#WizardExe}"
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: autostart
+Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#WizardExe}"; Description: "Register this device with the Tally Sync platform"; Parameters: "/wizard"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\vendor\nssm.exe"; Parameters: "install ""{#ServiceName}"" ""{app}\{#AppExeName}"""; Flags: runhidden waituntilterminated; Check: NssmExists
-Filename: "{app}\vendor\nssm.exe"; Parameters: "set ""{#ServiceName}"" AppDirectory ""{app}"""; Flags: runhidden waituntilterminated; Check: NssmExists
-Filename: "{app}\vendor\nssm.exe"; Parameters: "set ""{#ServiceName}"" AppStdout ""{app}\logs\service.log"""; Flags: runhidden waituntilterminated; Check: NssmExists
-Filename: "{app}\vendor\nssm.exe"; Parameters: "set ""{#ServiceName}"" AppStderr ""{app}\logs\service-error.log"""; Flags: runhidden waituntilterminated; Check: NssmExists
-Filename: "{app}\vendor\nssm.exe"; Parameters: "set ""{#ServiceName}"" Start SERVICE_AUTO_START"; Flags: runhidden waituntilterminated; Check: NssmExists
-Filename: "{app}\vendor\nssm.exe"; Parameters: "start ""{#ServiceName}"""; StatusMsg: "Starting Tally Sync Agent service..."; Flags: runhidden waituntilterminated; Check: NssmExists
+; Run registration wizard after install
+Filename: "{app}\{#WizardExe}"; Description: "Register this device with the Tally Sync platform"; Flags: nowait postinstall skipifsilent
+
+; Install as Windows service (if task selected)
+Filename: "{app}\{#ServiceExe}"; Parameters: "--startup auto install"; StatusMsg: "Installing Windows service..."; Flags: runhidden waituntilterminated; Tasks: installservice
+Filename: "{app}\{#ServiceExe}"; Parameters: "start"; StatusMsg: "Starting Tally Sync Agent service..."; Flags: runhidden waituntilterminated; Tasks: installservice
 
 [UninstallRun]
-Filename: "{app}\vendor\nssm.exe"; Parameters: "stop ""{#ServiceName}"""; Flags: runhidden waituntilterminated; RunOnceId: "StopService"; Check: NssmExists
-Filename: "{app}\vendor\nssm.exe"; Parameters: "remove ""{#ServiceName}"" confirm"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"; Check: NssmExists
-Filename: "{sys}\schtasks.exe"; Parameters: "/delete /tn ""TallySyncAgent_Restart"" /f"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveOTATask"
+; Stop and remove the service on uninstall
+Filename: "{app}\{#ServiceExe}"; Parameters: "stop"; Flags: runhidden waituntilterminated; RunOnceId: "StopService"
+Filename: "{app}\{#ServiceExe}"; Parameters: "remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
+; Clean up credentials from Windows Credential Manager
+Filename: "{sys}\cmdkey.exe"; Parameters: "/delete:TallySyncAgent"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteCreds"
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\logs"
-Type: filesandordirs; Name: "{app}\.update.lock"
-Type: files; Name: "{app}\*.backup.exe"
-Type: files; Name: "{app}\*.new.exe"
+Type: files; Name: "{app}\*.db"
 
 [Code]
-
-function NssmExists(): Boolean;
-begin
-  Result := FileExists(ExpandConstant('{app}\vendor\nssm.exe'));
-end;
 
 function InitializeSetup(): Boolean;
 begin
@@ -94,27 +99,13 @@ begin
   end;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  LogDir: String;
-begin
-  if CurStep = ssPostInstall then begin
-    LogDir := ExpandConstant('{app}\logs');
-    if not DirExists(LogDir) then
-      CreateDir(LogDir);
-  end;
-end;
-
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   ResultCode: Integer;
 begin
   if CurUninstallStep = usUninstall then begin
-    Exec(ExpandConstant('{sys}\cmdkey.exe'), '/delete:TallySyncAgent',
-         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
     if MsgBox(
-      'Do you want to delete all Tally Sync log files?' + #13#10 +
+      'Do you want to delete all Tally Sync Agent log files?' + #13#10 +
       '(Stored in ' + ExpandConstant('{app}\logs') + ')',
       mbConfirmation, MB_YESNO
     ) = IDNO then begin

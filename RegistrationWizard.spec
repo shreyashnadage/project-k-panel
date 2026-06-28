@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['run_agent.py'],
+    ['installer\\wizard\\registration_wizard.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -10,7 +10,6 @@ a = Analysis(
         'keyring.backends',
         'keyring.backends.Windows',
         'requests',
-        'dotenv',
     ],
     hookspath=[],
     hooksconfig={},
@@ -27,7 +26,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='TallySyncAgent',
+    name='registration_wizard',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -40,5 +39,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon='installer\\assets\\icon.ico',  # TODO: add real icon before pilot
 )

@@ -24,7 +24,11 @@ help:
 	@echo "  make format-check      Check formatting without changes"
 	@echo ""
 	@echo "Build:"
-	@echo "  make build-agent       Build agent executable with PyInstaller"
+	@echo "  make build-agent       Build agent exe with PyInstaller"
+	@echo "  make build-service     Build Windows service exe"
+	@echo "  make build-wizard      Build registration wizard exe"
+	@echo "  make build-all         Build all three exes"
+	@echo "  make build-installer   Build Inno Setup installer (requires build-all first)"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean             Remove build artifacts and cache"
@@ -41,21 +45,23 @@ install-dev:
 	pip install -e ".[agent,platform,dev]"
 
 # Testing targets
-test: test-unit test-integration
-	@echo "✓ All tests passed"
+test: test-pipeline test-registration
+	@echo "All active tests passed"
 
-test-unit:
-	python -m pytest tests/unit -v --tb=short -m unit
+test-pipeline:
+	python tests/test_full_pipeline.py
 
-test-integration:
-	python -m pytest tests/integration -v --tb=short -m integration
+test-multicompany:
+	python tests/test_multi_company.py
 
-test-e2e:
-	python -m pytest tests/e2e -v --tb=short -m e2e
+test-queue:
+	python tests/test_offline_queue.py
 
-coverage:
-	python -m pytest tests/unit tests/integration --cov=agent --cov=platform --cov-report=html --cov-report=term
-	@echo "✓ Coverage report generated in htmlcov/index.html"
+test-registration:
+	python tests/test_registration_service.py
+
+test-all: test-pipeline test-multicompany test-queue test-registration
+	@echo "Full test suite passed"
 
 phase0-verify:
 	python phase0_verify.py
@@ -73,15 +79,23 @@ format-check:
 
 # Build
 build-agent:
-	pyinstaller agent/main.py \
-		--name TallySyncAgent \
-		--onefile \
-		--add-data "agent/extractor/tdml_templates;agent/extractor/tdml_templates" \
-		--hidden-import win32api \
-		--hidden-import win32con \
-		--noconsole \
-		--icon installer/icon.ico
-	@echo "✓ Built: dist\TallySyncAgent.exe"
+	pyinstaller TallySyncAgent.spec --clean --noconfirm
+	@echo "Built: dist\TallySyncAgent.exe"
+
+build-service:
+	pyinstaller TallySyncService.spec --clean --noconfirm
+	@echo "Built: dist\TallySyncService.exe"
+
+build-wizard:
+	pyinstaller RegistrationWizard.spec --clean --noconfirm
+	@echo "Built: dist\registration_wizard.exe"
+
+build-all: build-agent build-service build-wizard
+	@echo "All executables built in dist/"
+
+build-installer: build-all
+	"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\TallySyncAgent.iss
+	@echo "Installer built: installer\dist\installer\TallySyncAgent-Setup-0.5.0.exe"
 
 # Cleanup
 clean:
