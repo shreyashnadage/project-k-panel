@@ -23,6 +23,7 @@ from agent.extractor.parser import parse_ledgers
 from agent.extractor.watermark import WatermarkManager
 from agent.transmitter.client import TransmitterClient, TransmitterError
 from agent.queue.manager import QueueManager
+from agent.registration import get_registration
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +65,24 @@ class SyncOrchestrator:
         self.tally_company_name = tally_company_name
         self.tally_company_guid = tally_company_guid
 
+        # Get registration info if available
+        registration = get_registration()
+        client_id = registration.get_client_id()
+        device_id = registration.get_device_id()
+
+        # Log registration status
+        if client_id:
+            logger.info(f"Agent registered as: {client_id}")
+            logger.info(f"Device ID: {device_id}")
+        else:
+            logger.warning("Agent not registered - data will not be tagged with client_id")
+
         self.transmitter = TransmitterClient(
             base_url=cloud_api_url,
             api_key=cloud_api_key,
             tenant_id=cloud_tenant_id,
+            client_id=client_id,
+            device_id=device_id,
         )
 
         self.queue = QueueManager()

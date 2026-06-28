@@ -2,79 +2,129 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { Card } from '@/components/ui/card'
-import { AlertCircle } from 'lucide-react'
+import { Database, FileText, Clock, Activity } from 'lucide-react'
+
+function formatIndianNumber(n: number) {
+  return n.toLocaleString('en-IN')
+}
+
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return 'Never'
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins} min ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+interface KPICardProps {
+  label: string
+  value: string
+  icon: React.ReactNode
+  accentColor: string
+  sub?: string
+  loading?: boolean
+}
+
+function KPICard({ label, value, icon, accentColor, sub, loading }: KPICardProps) {
+  if (loading) {
+    return (
+      <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24 }}>
+        <div className="skeleton" style={{ height: 16, width: '60%', marginBottom: 16 }} />
+        <div className="skeleton" style={{ height: 40, width: '75%', marginBottom: 8 }} />
+        <div className="skeleton" style={{ height: 12, width: '40%' }} />
+      </div>
+    )
+  }
+  return (
+    <div
+      style={{
+        background: '#1e293b', border: '1px solid #334155', borderRadius: 12,
+        padding: 24, transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8, background: `${accentColor}20`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColor,
+        }}>
+          {icon}
+        </div>
+        <span style={{ fontFamily: 'Inter, system-ui', fontSize: 13, fontWeight: 500, color: '#94a3b8' }}>{label}</span>
+      </div>
+      <div style={{ fontFamily: 'Outfit, system-ui', fontWeight: 800, fontSize: 36, lineHeight: 1, color: '#f1f5f9', marginBottom: 6 }}>
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, system-ui' }}>{sub}</div>}
+    </div>
+  )
+}
+
+function SyncHealthCard({ health, lastSync, loading }: { health?: string; lastSync?: string | null; loading: boolean }) {
+  if (loading) {
+    return (
+      <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24 }}>
+        <div className="skeleton" style={{ height: 16, width: '60%', marginBottom: 16 }} />
+        <div className="skeleton" style={{ height: 32, width: '80%' }} />
+      </div>
+    )
+  }
+  const dotColor    = health === 'healthy' ? '#22c55e' : health === 'warning' ? '#f59e0b' : '#ef4444'
+  const dotCls      = health === 'healthy' ? 'sync-dot--healthy' : health === 'warning' ? 'sync-dot--warning' : ''
+  const statusLabel = health === 'healthy' ? 'All systems go' : health === 'warning' ? 'Needs attention' : 'Check agent'
+
+  return (
+    <div
+      style={{
+        background: '#1e293b', border: '1px solid #334155', borderRadius: 12,
+        padding: 24, transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: `${dotColor}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Activity size={18} color={dotColor} />
+        </div>
+        <span style={{ fontFamily: 'Inter, system-ui', fontSize: 13, fontWeight: 500, color: '#94a3b8' }}>Sync Health</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <span className={dotCls} style={{ width: 10, height: 10, borderRadius: '50%', background: dotColor, display: 'inline-block', flexShrink: 0 }} />
+        <span style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 22, color: dotColor }}>{statusLabel}</span>
+      </div>
+      <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, system-ui' }}>
+        Last sync: {formatRelativeTime(lastSync ?? null)}
+      </div>
+    </div>
+  )
+}
 
 export default function KPIWidget() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ['kpi_records'],
-    queryFn: () => api.getKPIs(),
-    refetchInterval: 30000,
+    queryKey: ['kpis'],
+    queryFn: api.getKPIs,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   })
-
-  if (isLoading) {
-    return (
-      <Card className="bg-slate-900/50 border-slate-800 p-6">
-        <div className="space-y-4 animate-pulse">
-          <div className="h-4 bg-slate-700 rounded w-3/4" />
-          <div className="h-8 bg-slate-700 rounded w-1/2" />
-          <div className="h-4 bg-slate-700 rounded w-3/4" />
-          <div className="h-8 bg-slate-700 rounded w-1/2" />
-        </div>
-      </Card>
-    )
-  }
 
   if (error) {
     return (
-      <Card className="bg-slate-900/50 border-red-800/50 p-6">
-        <div className="flex items-center gap-2 text-red-400">
-          <AlertCircle size={16} />
-          <span className="text-sm">Failed to load KPIs</span>
-        </div>
-      </Card>
+      <div style={{ background: '#1e293b', border: '1px solid #ef4444', borderRadius: 12, padding: 20, color: '#f87171', fontSize: 14 }}>
+        Unable to fetch KPI data — check API connection.
+      </div>
     )
   }
 
   return (
-    <Card className="bg-slate-900/50 backdrop-blur border-slate-800 hover:border-slate-700 transition p-6">
-      <h3 className="text-slate-50 font-semibold mb-4">Sync Records</h3>
-
-      <div className="space-y-6">
-        <div>
-          <p className="text-sm text-slate-400 mb-1">Total Ledgers</p>
-          <p className="text-3xl font-bold text-teal-400">
-            {data?.total_ledgers?.toLocaleString() || '0'}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-sm text-slate-400 mb-1">Total Vouchers</p>
-          <p className="text-3xl font-bold text-teal-400">
-            {data?.total_vouchers?.toLocaleString() || '0'}
-          </p>
-        </div>
-
-        <div className="pt-4 border-t border-slate-700">
-          <p className="text-xs text-slate-400 mb-2">
-            Last sync: {data?.last_sync ? new Date(data.last_sync).toLocaleDateString() : 'Never'}
-          </p>
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                data?.sync_health === 'healthy'
-                  ? 'bg-green-500'
-                  : data?.sync_health === 'warning'
-                    ? 'bg-yellow-500'
-                    : 'bg-red-500'
-              }`}
-            />
-            <span className="text-xs text-slate-400 capitalize">
-              {data?.sync_health || 'unknown'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </Card>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+      <KPICard label="Total Ledgers"  value={isLoading ? '—' : data!.total_ledgers.toLocaleString('en-IN')}  icon={<Database size={18} />}  accentColor="#14b8a6" loading={isLoading} />
+      <KPICard label="Total Vouchers" value={isLoading ? '—' : data!.total_vouchers.toLocaleString('en-IN')} icon={<FileText size={18} />}  accentColor="#f59e0b" loading={isLoading} />
+      <KPICard label="Last Sync"      value={isLoading ? '—' : formatRelativeTime(data!.last_sync)}          icon={<Clock size={18} />}     accentColor="#3b82f6" loading={isLoading} />
+      <SyncHealthCard health={data?.sync_health} lastSync={data?.last_sync} loading={isLoading} />
+    </div>
   )
 }

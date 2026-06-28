@@ -1,94 +1,111 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { Card } from '@/components/ui/card'
-import { AlertCircle } from 'lucide-react'
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
+import type { CashFlowData } from '@/types/widgets'
 
-const AreaChart = dynamic(() => import('recharts').then((mod) => mod.AreaChart), {
-  ssr: false,
-  loading: () => <div className="h-64 bg-slate-700 animate-pulse rounded" />,
-})
+function formatINR(n: number) {
+  if (n >= 10_00_000) return `₹${(n / 10_00_000).toFixed(1)}L`
+  if (n >= 1_000) return `₹${(n / 1_000).toFixed(0)}K`
+  return `₹${n}`
+}
 
-const Area = dynamic(() => import('recharts').then((mod) => mod.Area), {
-  ssr: false,
-})
+function formatMonth(m: string) {
+  const [y, mo] = m.split('-')
+  const label = new Date(parseInt(y), parseInt(mo) - 1, 1)
+    .toLocaleString('en-IN', { month: 'short' })
+  return `${label} '${y.slice(2)}`
+}
 
-const XAxis = dynamic(() => import('recharts').then((mod) => mod.XAxis), {
-  ssr: false,
-})
-
-const YAxis = dynamic(() => import('recharts').then((mod) => mod.YAxis), {
-  ssr: false,
-})
-
-const CartesianGrid = dynamic(() => import('recharts').then((mod) => mod.CartesianGrid), {
-  ssr: false,
-})
-
-const Tooltip = dynamic(() => import('recharts').then((mod) => mod.Tooltip), {
-  ssr: false,
-})
-
-const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => mod.ResponsiveContainer), {
-  ssr: false,
-})
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{
+      background: '#0f172a', border: '1px solid #334155', borderRadius: 8,
+      padding: '10px 14px', fontSize: 13, fontFamily: 'Inter, system-ui',
+    }}>
+      <div style={{ color: '#94a3b8', marginBottom: 4 }}>{label}</div>
+      <div style={{ color: '#14b8a6', fontWeight: 600 }}>
+        {payload[0].value.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+      </div>
+    </div>
+  )
+}
 
 export default function CashFlowChartWidget() {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<CashFlowData[]>({
     queryKey: ['cash_flow'],
-    queryFn: () => api.getCashFlow(),
-    refetchInterval: 60000,
+    queryFn: () => api.getCashFlow('monthly', 6),
+    staleTime: 5 * 60_000,
+    refetchInterval: 60_000,
   })
 
-  if (isLoading) {
-    return (
-      <Card className="bg-slate-900/50 border-slate-800 p-6">
-        <div className="h-64 bg-slate-700 animate-pulse rounded" />
-      </Card>
-    )
-  }
-
-  if (error) {
-    return (
-      <Card className="bg-slate-900/50 border-red-800/50 p-6">
-        <div className="flex items-center gap-2 text-red-400">
-          <AlertCircle size={16} />
-          <span className="text-sm">Failed to load chart</span>
-        </div>
-      </Card>
-    )
-  }
+  const chartData = (data ?? []).map((d) => ({
+    month: formatMonth(d.month),
+    amount: d.amount,
+  }))
 
   return (
-    <Card className="bg-slate-900/50 backdrop-blur border-slate-800 p-6">
-      <h3 className="text-slate-50 font-semibold mb-4">Cash Flow Trend</h3>
+    <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24 }}>
+      <div style={{ marginBottom: 20 }}>
+        <h3 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 600, fontSize: 16, color: '#f1f5f9', margin: 0 }}>
+          Cash Flow
+        </h3>
+        <p style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Monthly transaction volume (last 6 months)</p>
+      </div>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={data || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#0d9488" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-          <XAxis dataKey="month" stroke="#94a3b8" />
-          <YAxis stroke="#94a3b8" />
-          <Tooltip
-            contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }}
-            formatter={(value: any) => `₹${(value as number).toLocaleString('en-IN')}`}
-          />
-          <Area
-            type="monotone"
-            dataKey="amount"
-            stroke="#0d9488"
-            fillOpacity={1}
-            fill="url(#colorCash)"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </Card>
+      {isLoading && (
+        <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="skeleton" style={{ width: '100%', height: 280, borderRadius: 8 }} />
+        </div>
+      )}
+
+      {error && (
+        <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', fontSize: 14 }}>
+          Failed to load chart data.
+        </div>
+      )}
+
+      {!isLoading && !error && (
+        <ResponsiveContainer width="100%" height={280}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#14b8a6" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e3a3a" vertical={false} />
+            <XAxis
+              dataKey="month"
+              tick={{ fill: '#64748b', fontSize: 12, fontFamily: 'Inter, system-ui' }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={formatINR}
+              tick={{ fill: '#64748b', fontSize: 12, fontFamily: 'JetBrains Mono, monospace' }}
+              axisLine={false}
+              tickLine={false}
+              width={60}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#334155', strokeWidth: 1 }} />
+            <Area
+              type="monotone"
+              dataKey="amount"
+              stroke="#14b8a6"
+              strokeWidth={2}
+              fill="url(#tealGrad)"
+              dot={{ fill: '#14b8a6', r: 4, strokeWidth: 0 }}
+              activeDot={{ r: 6, fill: '#0d9488' }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </div>
   )
 }

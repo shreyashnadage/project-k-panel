@@ -9,10 +9,11 @@ Schema includes:
 - Audit logs: For debugging and compliance
 """
 
-from sqlalchemy import Column, String, Integer, Text, DateTime, Boolean, Index, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Text, DateTime, Boolean, Index, UniqueConstraint, Enum, DECIMAL
 from sqlalchemy.orm import DeclarativeBase
 from datetime import datetime, timezone
 import uuid
+import enum
 
 
 class Base(DeclarativeBase):
@@ -121,3 +122,115 @@ class SyncAuditLog(Base):
 
     def __repr__(self):
         return f"<AuditLog {self.action}>"
+
+
+# ============================================================
+# CLIENT REGISTRATION MODELS (Phase 4: Onboarding System)
+# ============================================================
+
+class Client(Base):
+    """MSME Client - represents a business using Tally Sync."""
+    __tablename__ = "clients"
+
+    client_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    company_name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False, unique=True, index=True)
+    phone = Column(String(20))
+    gst_id = Column(String(50))
+
+    # Authentication fields
+    email_verified = Column(Boolean, default=False)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+
+    status = Column(String(50), default="pending_verification", index=True)  # pending_verification, active, suspended, inactive
+    plan = Column(String(50), default="trial")  # trial, basic, professional
+    billing_monthly_usd = Column(DECIMAL(10, 2), default=0)
+
+    # Tracking
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    last_sync_at = Column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self):
+        return f"<Client {self.company_name}>"
+
+
+class InstallationKey(Base):
+    """One-time use installation keys for agent setup."""
+    __tablename__ = "installation_keys"
+
+    key_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String(36), nullable=False, index=True)
+    installation_key = Column(String(100), nullable=False, unique=True, index=True)
+    status = Column(String(50), default="active")  # active, used, expired
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime(timezone=True))
+    used_at = Column(DateTime(timezone=True))
+    device_id_used_by = Column(String(36))  # After first use
+
+    def __repr__(self):
+        return f"<InstallationKey {self.installation_key}>"
+
+
+class DeviceRegistration(Base):
+    """Registered devices (PCs) that run Tally Sync Agent."""
+    __tablename__ = "device_registrations"
+
+    device_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String(36), nullable=False, index=True)
+    device_name = Column(String(255), nullable=False)
+    os_version = Column(String(255))
+    agent_version = Column(String(50))
+    registration_token = Column(String(500), nullable=False, unique=True)
+    api_key = Column(String(500), nullable=False, unique=True)
+    status = Column(String(50), default="active")  # active, inactive, revoked
+    registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_sync_at = Column(DateTime(timezone=True))
+    last_ip_address = Column(String(50))
+
+    __table_args__ = (
+        Index("ix_device_client", "client_id"),
+    )
+
+    def __repr__(self):
+        return f"<DeviceRegistration {self.device_name}>"
+
+
+class SyncRecord(Base):
+    """Track each sync operation with full metadata."""
+    __tablename__ = "sync_records"
+
+    sync_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String(36), nullable=False, index=True)
+    device_id = Column(String(36), nullable=False, index=True)
+    tenant_id = Column(String(36), nullable=False)
+    records_count = Column(Integer, default=0)
+    extracted_ledgers = Column(Integer, default=0)
+    extracted_vouchers = Column(Integer, default=0)
+    sync_status = Column(String(50), default="success")  # success, partial, failed
+    sync_timestamp = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
+    __table_args__ = (
+        Index("ix_sync_client_date", "client_id", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<SyncRecord {self.client_id}>"
+
+
+class RegistrationAuditLog(Base):
+    """Audit trail for client registrations, device setup, etc."""
+    __tablename__ = "registration_audit_log"
+
+    audit_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String(36), nullable=False, index=True)
+    action = Column(String(100), nullable=False)  # registered, device_registered, sync_received, key_used, etc.
+    details = Column(Text)  # JSON details
+    source_device = Column(String(255))
+    ip_address = Column(String(50))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
+    def __repr__(self):
+        return f"<RegistrationAuditLog {self.action}>"

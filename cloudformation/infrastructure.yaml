@@ -246,7 +246,7 @@ Resources:
       DBInstanceIdentifier: !Sub '${AppName}-db'
       DBInstanceClass: db.t3.medium
       Engine: postgres
-      EngineVersion: '14.7'
+      EngineVersion: '13.13'
       MasterUsername: postgres
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${AppName}-db-password:SecretString:password}}'
       AllocatedStorage: 100
@@ -292,13 +292,13 @@ Resources:
             curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
             chmod +x /usr/local/bin/docker-compose
 
-            # Pull and run application
-            aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com
-            docker pull ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/tally-sync-agent:latest
-            docker run -d -p 8000:8000 --name app \
-              -e DATABASE_URL="postgresql://postgres:PASSWORD@RDS_ENDPOINT:5432/tally_sync" \
-              -e ELASTICSEARCH_URL="https://ELASTICSEARCH_ENDPOINT:9200" \
-              ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/tally-sync-agent:latest
+            # Pull and run application (optional - can be configured later)
+            # aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.ap-south-1.amazonaws.com
+            # docker pull ${AWS::AccountId}.dkr.ecr.ap-south-1.amazonaws.com/tally-sync-agent:latest
+
+            # Install CloudWatch agent
+            wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+            rpm -U ./amazon-cloudwatch-agent.rpm
 
   # ========================================================================
   # Auto Scaling Group
@@ -360,7 +360,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: !Sub 'arn:aws:secretsmanager:ap-south-1:ACCOUNT_ID:secret:${AppName}-*'
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AppName}-*'
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile

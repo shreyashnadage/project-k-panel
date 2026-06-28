@@ -1,82 +1,183 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { Card } from '@/components/ui/card'
-import { AlertCircle } from 'lucide-react'
+import { VOUCHER_COLORS } from '@/types/widgets'
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { Voucher } from '@/types/widgets'
 
-export default function VouchersTableWidget() {
-  const [page, setPage] = useState(0)
-  const pageSize = 10
+const PAGE_SIZE = 10
+
+const VOUCHER_TYPES = ['All', 'Sales', 'Purchase', 'Receipt', 'Payment', 'Journal', 'Debit Note', 'Credit Note']
+
+function TypeBadge({ type }: { type: string }) {
+  const c = VOUCHER_COLORS[type] || { bg: '#1e293b', text: '#94a3b8', border: '#334155' }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '2px 10px', borderRadius: 20,
+      fontSize: 12, fontWeight: 500,
+      background: c.bg, color: c.text, border: `1px solid ${c.border}`,
+      fontFamily: 'Inter, system-ui', whiteSpace: 'nowrap',
+    }}>
+      {type}
+    </span>
+  )
+}
+
+function formatDate(d: string) {
+  try {
+    return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+  } catch { return d }
+}
+
+function formatAmount(a: string) {
+  const n = parseFloat(a)
+  if (isNaN(n)) return a
+  return n.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 })
+}
+
+interface Props { compact?: boolean }
+
+export default function VouchersTableWidget({ compact }: Props) {
+  const [apiPage, setApiPage] = useState(0)
+  const [localPage, setLocalPage] = useState(0)
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('All')
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['vouchers', page],
-    queryFn: () => api.getVouchers(page * pageSize, pageSize),
-    refetchInterval: 5000,
+    queryKey: ['vouchers', apiPage],
+    queryFn: () => api.getVouchers(apiPage * 50, 50),
+    staleTime: 30_000,
+    refetchInterval: compact ? undefined : 30_000,
   })
 
-  if (isLoading) {
-    return (
-      <Card className="bg-slate-900/50 border-slate-800 p-6">
-        <div className="space-y-3 animate-pulse">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-12 bg-slate-700 rounded" />
-          ))}
-        </div>
-      </Card>
-    )
-  }
+  const filtered: Voucher[] = useMemo(() => {
+    if (!data?.data) return []
+    return data.data.filter((v) => {
+      const matchType = typeFilter === 'All' || v.type === typeFilter
+      const q = search.toLowerCase()
+      const matchSearch = !q || v.party.toLowerCase().includes(q) || v.voucher_number.toLowerCase().includes(q)
+      return matchType && matchSearch
+    })
+  }, [data, search, typeFilter])
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const pageSlice = filtered.slice(localPage * PAGE_SIZE, (localPage + 1) * PAGE_SIZE)
+
+  const showRows = compact ? filtered.slice(0, 5) : pageSlice
 
   if (error) {
     return (
-      <Card className="bg-slate-900/50 border-red-800/50 p-6">
-        <div className="flex items-center gap-2 text-red-400">
-          <AlertCircle size={16} />
-          <span className="text-sm">Failed to load vouchers</span>
-        </div>
-      </Card>
+      <div style={{ background: '#1e293b', border: '1px solid #ef4444', borderRadius: 12, padding: 20, color: '#f87171', fontSize: 14 }}>
+        Failed to load vouchers.
+      </div>
     )
   }
 
-  const totalPages = Math.ceil((data?.total || 0) / pageSize)
-
   return (
-    <Card className="bg-slate-900/50 backdrop-blur border-slate-800 p-6">
-      <h3 className="text-slate-50 font-semibold mb-4">Recent Vouchers</h3>
+    <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <h3 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 600, fontSize: 16, color: '#f1f5f9', margin: 0, flex: 1 }}>
+          {compact ? 'Recent Vouchers' : 'Vouchers'}
+        </h3>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        {!compact && (
+          <>
+            {/* Search */}
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <input
+                type="text"
+                placeholder="Search party / voucher..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setLocalPage(0) }}
+                style={{
+                  background: '#0f172a', border: '1px solid #334155', borderRadius: 8,
+                  padding: '7px 12px 7px 32px', fontSize: 13, color: '#f1f5f9',
+                  fontFamily: 'Inter, system-ui', outline: 'none', width: 220,
+                }}
+              />
+            </div>
+
+            {/* Type filter */}
+            <select
+              value={typeFilter}
+              onChange={(e) => { setTypeFilter(e.target.value); setLocalPage(0) }}
+              style={{
+                background: '#0f172a', border: '1px solid #334155', borderRadius: 8,
+                padding: '7px 12px', fontSize: 13, color: '#f1f5f9',
+                fontFamily: 'Inter, system-ui', outline: 'none', cursor: 'pointer',
+              }}
+            >
+              {VOUCHER_TYPES.map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </>
+        )}
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr className="border-b border-slate-700">
-              <th className="text-left px-4 py-2 text-slate-400 font-medium">Date</th>
-              <th className="text-left px-4 py-2 text-slate-400 font-medium">Voucher</th>
-              <th className="text-left px-4 py-2 text-slate-400 font-medium">Party</th>
-              <th className="text-left px-4 py-2 text-slate-400 font-medium">Type</th>
-              <th className="text-right px-4 py-2 text-slate-400 font-medium">Amount</th>
+            <tr style={{ background: '#0f172a' }}>
+              {['#', 'Date', 'Party', 'Type', 'Amount'].map((h) => (
+                <th key={h} style={{
+                  padding: '10px 16px', textAlign: h === 'Amount' ? 'right' : 'left',
+                  fontSize: 12, fontWeight: 600, color: '#64748b',
+                  fontFamily: 'Inter, system-ui', borderBottom: '1px solid #334155',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {data?.data?.map((voucher) => (
-              <tr key={voucher.id} className="border-b border-slate-700/50 hover:bg-slate-800/30">
-                <td className="px-4 py-3 text-slate-300">{voucher.date}</td>
-                <td className="px-4 py-3 text-slate-300 font-mono">{voucher.voucher_number}</td>
-                <td className="px-4 py-3 text-slate-300">{voucher.party}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      voucher.type === 'Sales'
-                        ? 'bg-green-900/30 text-green-400'
-                        : voucher.type === 'Purchase'
-                          ? 'bg-red-900/30 text-red-400'
-                          : 'bg-slate-700/30 text-slate-400'
-                    }`}
-                  >
-                    {voucher.type}
-                  </span>
+            {isLoading && Array.from({ length: compact ? 5 : PAGE_SIZE }).map((_, i) => (
+              <tr key={i}>
+                {Array.from({ length: 5 }).map((__, j) => (
+                  <td key={j} style={{ padding: '12px 16px' }}>
+                    <div className="skeleton" style={{ height: 14, width: j === 2 ? '80%' : '60%' }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+
+            {!isLoading && showRows.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontSize: 14 }}>
+                  {search || typeFilter !== 'All' ? 'No vouchers match your filter.' : 'No vouchers found.'}
                 </td>
-                <td className="text-right px-4 py-3 text-slate-300">
-                  ₹{parseFloat(voucher.amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </tr>
+            )}
+
+            {!isLoading && showRows.map((v, i) => (
+              <tr
+                key={v.id}
+                style={{
+                  borderBottom: '1px solid #1e3a3a',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#0f2f2f'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#64748b' }}>
+                  {v.voucher_number}
+                </td>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                  {formatDate(v.date)}
+                </td>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: '#e2e8f0', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {v.party}
+                </td>
+                <td style={{ padding: '12px 16px' }}>
+                  <TypeBadge type={v.type} />
+                </td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#f1f5f9', whiteSpace: 'nowrap' }}>
+                  {formatAmount(v.amount)}
                 </td>
               </tr>
             ))}
@@ -85,25 +186,40 @@ export default function VouchersTableWidget() {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-700">
-        <button
-          onClick={() => setPage(Math.max(0, page - 1))}
-          disabled={page === 0}
-          className="px-3 py-2 text-sm rounded bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        >
-          Previous
-        </button>
-        <span className="text-xs text-slate-400">
-          Page {page + 1} of {totalPages || 1}
-        </span>
-        <button
-          onClick={() => setPage(page + 1)}
-          disabled={(page + 1) * pageSize >= (data?.total || 0)}
-          className="px-3 py-2 text-sm rounded bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        >
-          Next
-        </button>
-      </div>
-    </Card>
+      {!compact && !isLoading && filtered.length > PAGE_SIZE && (
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid #334155',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, system-ui' }}>
+            Showing {localPage * PAGE_SIZE + 1}–{Math.min((localPage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setLocalPage(p => Math.max(0, p - 1))}
+              disabled={localPage === 0}
+              style={{
+                background: '#0f172a', border: '1px solid #334155', borderRadius: 6,
+                padding: '5px 10px', color: localPage === 0 ? '#475569' : '#94a3b8',
+                cursor: localPage === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center',
+              }}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              onClick={() => setLocalPage(p => Math.min(totalPages - 1, p + 1))}
+              disabled={localPage >= totalPages - 1}
+              style={{
+                background: '#0f172a', border: '1px solid #334155', borderRadius: 6,
+                padding: '5px 10px', color: localPage >= totalPages - 1 ? '#475569' : '#94a3b8',
+                cursor: localPage >= totalPages - 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center',
+              }}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

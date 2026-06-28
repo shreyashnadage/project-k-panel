@@ -128,7 +128,12 @@ class TallySyncService:
         logger.info("-" * 70)
 
         try:
-            # Initialize orchestrator
+            # Step 1: Ensure Tally API is ready
+            from agent.setup import ensure_tally_ready
+            if not ensure_tally_ready():
+                logger.warning("Tally API setup failed, but proceeding with sync...")
+
+            # Step 2: Initialize orchestrator
             import os
             from pathlib import Path
             from dotenv import load_dotenv
@@ -147,7 +152,7 @@ class TallySyncService:
                 cloud_tenant_id=os.getenv("CLOUD_TENANT_ID", ""),
             )
 
-            # Run sync
+            # Step 3: Run sync
             result = orchestrator.run_once()
 
             # Log result

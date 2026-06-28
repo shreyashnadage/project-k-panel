@@ -19,7 +19,15 @@ class TransmitterClient:
     Handles authentication, retries, and graceful failure.
     """
 
-    def __init__(self, base_url: str, api_key: str, tenant_id: str, max_retries: int = 3):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        tenant_id: str,
+        client_id: Optional[str] = None,
+        device_id: Optional[str] = None,
+        max_retries: int = 3
+    ):
         """
         Initialize transmitter client.
 
@@ -27,17 +35,27 @@ class TransmitterClient:
             base_url: Cloud API base URL (e.g., http://localhost:8000)
             api_key: API key for authentication
             tenant_id: Tenant ID in cloud system
+            client_id: Client ID for data tagging (if registered)
+            device_id: Device ID for tracking data source (if registered)
             max_retries: Number of retry attempts on failure
         """
         self.base_url = base_url.rstrip('/')
         self.api_key = api_key
         self.tenant_id = tenant_id
+        self.client_id = client_id
+        self.device_id = device_id
         self.max_retries = max_retries
         self.session = requests.Session()
         self.headers = {
             "Content-Type": "application/json",
             "x-api-key": api_key,
         }
+
+        # Add client tracking headers if registered
+        if client_id:
+            self.headers["x-client-id"] = client_id
+        if device_id:
+            self.headers["x-device-id"] = device_id
 
     def send_ledgers(self, ledgers: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
