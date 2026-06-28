@@ -248,16 +248,19 @@ class AlreadyRegisteredPage(BasePage):
         btn_frame = tk.Frame(self, bg=BG)
         btn_frame.grid(row=6, column=0, pady=20)
 
-        self._button(
-            "Keep Existing & Close",
-            self.controller.quit_app,
-            primary=True,
+        tk.Button(
+            btn_frame, text="Keep Existing & Close",
+            command=self.controller.quit_app,
+            bg=PRIMARY, fg="#FFFFFF", activebackground=PRIMARY_DARK,
+            activeforeground="#FFFFFF", relief="flat", padx=20, pady=8,
+            font=("Segoe UI", 11, "bold"), cursor="hand2",
         ).pack(side="left", padx=(0, 12))
 
-        self._button(
-            "Re-register",
-            self._re_register,
-            primary=False,
+        tk.Button(
+            btn_frame, text="Re-register",
+            command=self._re_register,
+            bg="#FFFFFF", fg=TEXT, relief="flat", padx=20, pady=8,
+            font=("Segoe UI", 11, "bold"), cursor="hand2",
         ).pack(side="left")
 
     def _re_register(self):
