@@ -6,11 +6,12 @@ Shown during first install (by the Inno Setup installer via /wizard flag)
 and can also be re-run standalone to re-register.
 
 Flow:
-  1. Welcome screen
-  2. Installation key entry
-  3. Validates key with platform
-  4. Stores credentials in Windows Credential Manager
-  5. Done screen
+  1. Check if already registered → show "Already Registered" page
+  2. Welcome screen (first install only)
+  3. Installation key entry
+  4. Validates key with platform
+  5. Stores credentials in Windows Credential Manager
+  6. Done screen
 """
 
 from __future__ import annotations
@@ -33,8 +34,8 @@ import keyring
 # ---------------------------------------------------------------------------
 # Config  (overridable via environment)
 # ---------------------------------------------------------------------------
-API_BASE_URL = os.getenv("CLOUD_API_URL", "http://15.206.90.21:8000")
-AGENT_VERSION = "0.4.0"
+API_BASE_URL = os.getenv("CLOUD_API_URL", "http://localhost:8000")
+AGENT_VERSION = "0.5.0"
 KEYRING_SERVICE = "TallySyncAgent"
 KEYRING_USERNAME = "registration"  # must match agent/registration.py CRED_USERNAME
 
@@ -49,6 +50,8 @@ SUCCESS_BG = "#ECFDF5"
 SUCCESS_FG = "#065F46"
 ERROR_BG = "#FEF2F2"
 ERROR_FG = "#991B1B"
+WARNING_BG = "#FFFBEB"
+WARNING_FG = "#92400E"
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +64,17 @@ def _device_name() -> str:
 
 def _os_version() -> str:
     return f"Windows {platform.version()}"
+
+
+def _get_existing_credentials() -> Optional[dict]:
+    """Check if credentials already exist in Windows Credential Manager."""
+    try:
+        stored = keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+        if stored:
+            return json.loads(stored)
+    except Exception:
+        pass
+    return None
 
 
 def _register_device(key: str) -> dict:
@@ -76,8 +90,11 @@ def _register_device(key: str) -> dict:
         timeout=15,
     )
     if resp.status_code != 200:
-        detail = resp.json().get("detail", resp.text)
-        raise ValueError(detail)
+        try:
+            detail = resp.json().get("detail") or resp.text
+        except Exception:
+            detail = resp.text
+        raise ValueError(f"Registration failed ({resp.status_code}): {detail}")
     return resp.json()
 
 
@@ -91,6 +108,14 @@ def _store_credentials(creds: dict):
         "api_base_url": API_BASE_URL,
     })
     keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, payload)
+
+
+def _delete_credentials():
+    """Remove credentials from Windows Credential Manager."""
+    try:
+        keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
+    except keyring.errors.PasswordDeleteError:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -122,12 +147,102 @@ class BasePage(tk.Frame):
         return btn
 
 
+class AlreadyRegisteredPage(BasePage):
+    """Shown when device already has credentials in Credential Manager."""
+
+    def __init__(self, parent, controller):
+        super().__init__(parent, controller)
+        self.columnconfigure(0, weight=1)
+        self._creds: Optional[dict] = None
+
+    def refresh(self, creds: dict):
+        self._creds = creds
+        for w in self.winfo_children():
+            w.destroy()
+        self._build()
+
+    def _build(self):
+        tk.Label(self, text="ℹ️", bg=BG, font=("Segoe UI", 48)).grid(
+            row=0, column=0, pady=(30, 0)
+        )
+        self._label("Device Already Registered", size=20, bold=True).grid(
+            row=1, column=0, pady=(8, 4)
+        )
+        self._label(
+            "This device is already registered with the\n"
+            "Tally Sync platform. You can continue using\n"
+            "the existing registration or re-register.",
+            size=11, color=MUTED, justify="center",
+        ).grid(row=2, column=0)
+
+        tk.Frame(self, bg=BORDER, height=1).grid(
+            row=3, column=0, sticky="ew", padx=40, pady=16
+        )
+
+        # Show existing credentials
+        info_frame = tk.Frame(self, bg="#EFF6FF", bd=0)
+        info_frame.grid(row=4, column=0, sticky="ew", padx=40)
+        info_frame.columnconfigure(1, weight=1)
+
+        rows = [
+            ("Client ID", self._creds.get("client_id", "—")),
+            ("Device ID", self._creds.get("device_id", "—")),
+            ("Server", self._creds.get("api_base_url", "—")),
+            ("Device", _device_name()),
+        ]
+        for i, (k, v) in enumerate(rows):
+            tk.Label(
+                info_frame, text=k + ":", bg="#EFF6FF", fg=MUTED,
+                font=("Segoe UI", 10), anchor="w"
+            ).grid(row=i, column=0, sticky="w", padx=12, pady=3)
+            tk.Label(
+                info_frame, text=str(v), bg="#EFF6FF", fg=TEXT,
+                font=("Consolas", 10), anchor="w"
+            ).grid(row=i, column=1, sticky="w", padx=4, pady=3)
+
+        # Warning about re-registration
+        warn_frame = tk.Frame(self, bg=WARNING_BG, bd=0)
+        warn_frame.grid(row=5, column=0, sticky="ew", padx=40, pady=(16, 0))
+        tk.Label(
+            warn_frame,
+            text="Re-registering will replace the existing credentials.\n"
+                 "You will need a new installation key from the portal.",
+            bg=WARNING_BG, fg=WARNING_FG,
+            font=("Segoe UI", 9), justify="left", wraplength=340,
+        ).grid(padx=12, pady=8)
+
+        # Buttons
+        btn_frame = tk.Frame(self, bg=BG)
+        btn_frame.grid(row=6, column=0, pady=20)
+
+        self._button(
+            "Keep Existing & Close",
+            self.controller.quit_app,
+            primary=True,
+        ).pack(side="left", padx=(0, 12))
+
+        self._button(
+            "Re-register",
+            self._re_register,
+            primary=False,
+        ).pack(side="left")
+
+    def _re_register(self):
+        if messagebox.askyesno(
+            "Re-register Device",
+            "Are you sure you want to re-register?\n\n"
+            "This will delete the current credentials and\n"
+            "you will need a new installation key.",
+        ):
+            _delete_credentials()
+            self.controller.show("key")
+
+
 class WelcomePage(BasePage):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
         self.columnconfigure(0, weight=1)
 
-        # Logo placeholder
         tk.Label(self, text="⚡", bg=BG, font=("Segoe UI", 48)).grid(
             row=0, column=0, pady=(40, 0)
         )
@@ -184,7 +299,6 @@ class KeyPage(BasePage):
         )
         key_entry.grid(row=4, column=0, padx=40, sticky="ew", ipady=6)
         key_entry.focus_set()
-        # Bind Enter
         key_entry.bind("<Return>", lambda e: self._submit())
 
         self._label(
@@ -205,7 +319,6 @@ class KeyPage(BasePage):
         self._progress.grid(row=7, column=0, padx=40, pady=(8, 0))
         self._progress.grid_remove()
 
-        # Buttons — children of btn_frame so pack() doesn't conflict with grid()
         btn_frame = tk.Frame(self, bg=BG)
         btn_frame.grid(row=8, column=0, pady=24, sticky="e", padx=40)
 
@@ -234,7 +347,6 @@ class KeyPage(BasePage):
             return
 
         self._set_busy(True)
-        # Run network call off the main thread
         import threading
         threading.Thread(target=self._do_register, args=(key,), daemon=True).start()
 
@@ -242,7 +354,6 @@ class KeyPage(BasePage):
         try:
             creds = _register_device(key)
             _store_credentials(creds)
-            # Back to main thread
             self.after(0, lambda: self.controller.show("done", data=creds))
         except ValueError as e:
             self.after(0, lambda: self._set_error(str(e)))
@@ -318,13 +429,13 @@ class DonePage(BasePage):
                 font=("Segoe UI", 10), anchor="w"
             ).grid(row=i, column=0, sticky="w", padx=12, pady=3)
             tk.Label(
-                info_frame, text=v, bg="#EFF6FF", fg=TEXT,
+                info_frame, text=str(v), bg="#EFF6FF", fg=TEXT,
                 font=("Consolas", 10), anchor="w"
             ).grid(row=i, column=1, sticky="w", padx=4, pady=3)
 
         self._label(
-            "\nTally Sync Agent will start automatically\n"
-            "and sync your data every 6 hours.",
+            "\nThe Tally Sync Agent service will start automatically\n"
+            "and begin syncing your data.",
             size=11, color=MUTED, justify="center",
         ).grid(row=5, column=0, pady=(20, 0))
 
@@ -342,11 +453,9 @@ class RegistrationWizard(tk.Tk):
         self.resizable(False, False)
         self.configure(bg=BG)
 
-        # Centre on screen
-        w, h = 480, 540
+        w, h = 480, 560
         self.geometry(f"{w}x{h}+{(self.winfo_screenwidth()-w)//2}+{(self.winfo_screenheight()-h)//2}")
 
-        # Container that fills the window
         container = tk.Frame(self, bg=BG)
         container.pack(fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -354,19 +463,27 @@ class RegistrationWizard(tk.Tk):
 
         self._pages: Dict[str, BasePage] = {}
         for name, cls in [
-            ("welcome", WelcomePage),
-            ("key",     KeyPage),
-            ("done",    DonePage),
+            ("welcome",    WelcomePage),
+            ("key",        KeyPage),
+            ("done",       DonePage),
+            ("registered", AlreadyRegisteredPage),
         ]:
             page = cls(container, self)
             page.grid(row=0, column=0, sticky="nsew")
             self._pages[name] = page
 
-        self.show("welcome")
+        # Check if already registered
+        existing = _get_existing_credentials()
+        if existing:
+            self.show("registered", data=existing)
+        else:
+            self.show("welcome")
 
     def show(self, name: str, data: Optional[dict] = None):
         page = self._pages[name]
         if name == "done" and data:
+            page.refresh(data)
+        elif name == "registered" and data:
             page.refresh(data)
         page.tkraise()
 

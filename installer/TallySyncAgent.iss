@@ -68,11 +68,11 @@ Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
-; Run registration wizard after install
-Filename: "{app}\{#WizardExe}"; Description: "Register this device with the Tally Sync platform"; Flags: nowait postinstall skipifsilent
+; Run registration wizard after install (wizard itself detects if already registered)
+Filename: "{app}\{#WizardExe}"; Description: "Open Registration Wizard"; Flags: nowait postinstall skipifsilent
 
-; Install as Windows service (if task selected)
-Filename: "{app}\{#ServiceExe}"; Parameters: "--startup auto install"; StatusMsg: "Installing Windows service..."; Flags: runhidden waituntilterminated; Tasks: installservice
+; Install or update Windows service (if task selected)
+; The [Code] section handles stop-before-upgrade and install-vs-update logic
 Filename: "{app}\{#ServiceExe}"; Parameters: "start"; StatusMsg: "Starting Tally Sync Agent service..."; Flags: runhidden waituntilterminated; Tasks: installservice
 
 [UninstallRun]
@@ -88,6 +88,81 @@ Type: files; Name: "{app}\*.db"
 
 [Code]
 
+function IsServiceInstalled(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  { sc.exe query returns 0 if service exists, nonzero otherwise }
+  Result := Exec(
+    ExpandConstant('{sys}\sc.exe'),
+    'query ' + '{#ServiceName}',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode
+  ) and (ResultCode = 0);
+end;
+
+function IsServiceRunning(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if IsServiceInstalled() then begin
+    { Use net start and check if our service is listed }
+    Exec(
+      ExpandConstant('{sys}\sc.exe'),
+      'query ' + '{#ServiceName}',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode
+    );
+    { If query succeeds (ResultCode=0), assume it could be running }
+    { We'll just try to stop it — stop is safe even if already stopped }
+    Result := (ResultCode = 0);
+  end;
+end;
+
+procedure StopExistingService();
+var
+  ResultCode: Integer;
+begin
+  if IsServiceInstalled() then begin
+    Log('Stopping existing service before upgrade...');
+    Exec(
+      ExpandConstant('{sys}\sc.exe'),
+      'stop ' + '{#ServiceName}',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode
+    );
+    { Wait a moment for service to stop and release file locks }
+    Sleep(3000);
+  end;
+end;
+
+procedure InstallOrUpdateService();
+var
+  ResultCode: Integer;
+  ServiceExePath: String;
+begin
+  if not WizardIsTaskSelected('installservice') then
+    Exit;
+
+  ServiceExePath := ExpandConstant('{app}\{#ServiceExe}');
+
+  if IsServiceInstalled() then begin
+    { Service exists — update the binary path (handles exe location changes) }
+    Log('Service already installed — updating configuration...');
+    Exec(
+      ServiceExePath,
+      'update',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode
+    );
+  end else begin
+    { Fresh install }
+    Log('Installing service for the first time...');
+    Exec(
+      ServiceExePath,
+      '--startup auto install',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode
+    );
+  end;
+end;
+
 function InitializeSetup(): Boolean;
 begin
   Result := True;
@@ -98,6 +173,19 @@ begin
       mbError, MB_OK
     );
     Result := False;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then begin
+    { Stop existing service BEFORE files are copied — prevents file lock errors }
+    StopExistingService();
+  end;
+
+  if CurStep = ssPostInstall then begin
+    { Install or update the service AFTER files are in place }
+    InstallOrUpdateService();
   end;
 end;
 
