@@ -201,13 +201,23 @@ class KeyPage(BasePage):
         self._progress.grid(row=7, column=0, padx=40, pady=(8, 0))
         self._progress.grid_remove()
 
-        # Buttons
+        # Buttons — children of btn_frame so pack() doesn't conflict with grid()
         btn_frame = tk.Frame(self, bg=BG)
         btn_frame.grid(row=8, column=0, pady=24, sticky="e", padx=40)
-        self._button("← Back", lambda: controller.show("welcome"), primary=False).pack(
-            side="left", padx=(0, 8)
+
+        back_btn = tk.Button(
+            btn_frame, text="<- Back", command=lambda: controller.show("welcome"),
+            bg="#FFFFFF", fg=TEXT, relief="flat", padx=20, pady=8,
+            font=("Segoe UI", 11, "bold"), cursor="hand2",
         )
-        self._submit_btn = self._button("Register Device", self._submit)
+        back_btn.pack(side="left", padx=(0, 8))
+
+        self._submit_btn = tk.Button(
+            btn_frame, text="Register Device", command=self._submit,
+            bg=PRIMARY, fg="#FFFFFF", activebackground=PRIMARY_DARK,
+            activeforeground="#FFFFFF", relief="flat", padx=20, pady=8,
+            font=("Segoe UI", 11, "bold"), cursor="hand2",
+        )
         self._submit_btn.pack(side="left")
 
     def _submit(self):
