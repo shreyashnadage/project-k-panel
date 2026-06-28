@@ -1,1 +1,0 @@
-"""Tally TDML extraction logic."""
