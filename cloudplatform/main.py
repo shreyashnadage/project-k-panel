@@ -10,6 +10,11 @@ from fastapi.responses import JSONResponse
 
 from cloudplatform.db.database import init_db
 from cloudplatform.api.ingest import router as ingest_router
+from cloudplatform.api.telemetry import router as telemetry_router
+from cloudplatform.api.registration import router as registration_router
+from cloudplatform.api.dashboard import router as dashboard_router
+from cloudplatform.auth import router as auth_router
+from cloudplatform.keys import router as device_router
 
 # Setup logging
 logging.basicConfig(
@@ -35,7 +40,12 @@ def startup():
 
 
 # Include routers
+app.include_router(auth_router)  # Phase 1: Authentication
+app.include_router(device_router)  # Phase 2: Device Registration
 app.include_router(ingest_router)
+app.include_router(telemetry_router)
+app.include_router(registration_router)
+app.include_router(dashboard_router)  # Dashboard API for frontend
 
 
 # Health check (root)
