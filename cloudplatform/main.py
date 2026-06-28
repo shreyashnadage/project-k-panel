@@ -6,6 +6,7 @@ FastAPI application for receiving and storing extracted accounting data.
 
 import logging
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from cloudplatform.db.database import init_db
@@ -29,6 +30,19 @@ app = FastAPI(
     title="Tally Sync Platform",
     description="Cloud backend for Tally data synchronization",
     version="0.3.0",
+)
+
+# CORS — allow browser requests from local dev and any future prod domain
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://15.206.90.21:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Initialize database
