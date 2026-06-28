@@ -15,6 +15,7 @@ from cloudplatform.api.registration import router as registration_router
 from cloudplatform.api.dashboard import router as dashboard_router
 from cloudplatform.auth import router as auth_router
 from cloudplatform.keys import router as device_router
+from cloudplatform.api.commands import router as commands_router
 
 # Setup logging
 logging.basicConfig(
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Tally Sync Platform",
     description="Cloud backend for Tally data synchronization",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 # Initialize database
@@ -46,6 +47,7 @@ app.include_router(ingest_router)
 app.include_router(telemetry_router)
 app.include_router(registration_router)
 app.include_router(dashboard_router)  # Dashboard API for frontend
+app.include_router(commands_router)   # Command channel: cloud → agent
 
 
 # Health check (root)

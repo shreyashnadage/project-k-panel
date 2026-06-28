@@ -13,6 +13,7 @@ Control:
     nssm status TallySyncAgent
 """
 
+import os
 import sys
 import logging
 import logging.handlers
@@ -51,10 +52,15 @@ class TallySyncService:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
+        self.command_poll_interval_seconds = int(
+            os.getenv("TALLY_COMMAND_POLL_INTERVAL_SECONDS", "60")
+        )
+
         # Service state
         self.running = False
         self.shutdown_event = threading.Event()
         self.next_sync_time = None
+        self._command_thread: threading.Thread | None = None
 
         self._setup_logging()
 
@@ -121,6 +127,46 @@ class TallySyncService:
         finally:
             logger.info("Service stopped")
 
+    def _build_orchestrator(self) -> SyncOrchestrator:
+        """Load config and create a fresh orchestrator instance."""
+        from dotenv import load_dotenv
+        env_file = Path(".env.local")
+        if env_file.exists():
+            load_dotenv(env_file)
+
+        return SyncOrchestrator(
+            tally_url=os.getenv("TALLY_URL", "http://localhost:9000"),
+            tally_company_name=os.getenv("TALLY_COMPANY_NAME", ""),
+            tally_company_guid=os.getenv("TALLY_COMPANY_GUID", ""),
+            cloud_api_url=os.getenv("CLOUD_API_URL", "http://localhost:8000"),
+            cloud_api_key=os.getenv("CLOUD_API_KEY", ""),
+            cloud_tenant_id=os.getenv("CLOUD_TENANT_ID", ""),
+        )
+
+    def _run_command_poll_loop(self, orchestrator: SyncOrchestrator) -> None:
+        """
+        Runs in a daemon thread: polls cloud for admin commands every 60s.
+
+        Completely independent of the scheduled sync interval — commands are
+        picked up even when the main sync is not yet due.
+        """
+        logger.info(f"Command poller started (interval={self.command_poll_interval_seconds}s)")
+        while self.running:
+            try:
+                count = orchestrator.poll_and_execute_commands()
+                if count:
+                    logger.info(f"Executed {count} admin command(s)")
+            except Exception as e:
+                logger.error(f"Command poll error (non-fatal): {e}")
+
+            # Sleep in 1-second increments so shutdown signal is caught promptly
+            for _ in range(self.command_poll_interval_seconds):
+                if not self.running:
+                    break
+                time.sleep(1)
+
+        logger.info("Command poller stopped")
+
     def _run_sync_cycle(self):
         """Execute one sync cycle (extraction, queue, transmission)."""
         logger.info("-" * 70)
@@ -133,27 +179,22 @@ class TallySyncService:
             if not ensure_tally_ready():
                 logger.warning("Tally API setup failed, but proceeding with sync...")
 
-            # Step 2: Initialize orchestrator
-            import os
-            from pathlib import Path
-            from dotenv import load_dotenv
+            # Step 2: Initialize orchestrator (once; reused by command thread)
+            if not hasattr(self, "_orchestrator") or self._orchestrator is None:
+                self._orchestrator = self._build_orchestrator()
 
-            # Load config
-            env_file = Path(".env.local")
-            if env_file.exists():
-                load_dotenv(env_file)
-
-            orchestrator = SyncOrchestrator(
-                tally_url=os.getenv("TALLY_URL", "http://localhost:9000"),
-                tally_company_name=os.getenv("TALLY_COMPANY_NAME", ""),
-                tally_company_guid=os.getenv("TALLY_COMPANY_GUID", ""),
-                cloud_api_url=os.getenv("CLOUD_API_URL", "http://localhost:8000"),
-                cloud_api_key=os.getenv("CLOUD_API_KEY", ""),
-                cloud_tenant_id=os.getenv("CLOUD_TENANT_ID", ""),
-            )
+                # Launch command poller thread alongside the first sync cycle
+                self._command_thread = threading.Thread(
+                    target=self._run_command_poll_loop,
+                    args=(self._orchestrator,),
+                    daemon=True,
+                    name="CommandPoller",
+                )
+                self._command_thread.start()
+                logger.info("Command poller thread started")
 
             # Step 3: Run sync
-            result = orchestrator.run_once()
+            result = self._orchestrator.run_once()
 
             # Log result
             logger.info(f"Sync result: {result}")

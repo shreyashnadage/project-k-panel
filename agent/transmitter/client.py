@@ -194,6 +194,53 @@ class TransmitterClient:
             return False
 
 
+    def get_pending_commands(self, device_id: str) -> list:
+        """
+        Poll cloud for admin commands targeting this device.
+
+        Returns list of command dicts, empty list on error or when nothing pending.
+        Never raises — a failed poll must not crash the sync loop.
+        """
+        try:
+            response = self.session.get(
+                f"{self.base_url}/v1/commands/pending",
+                params={"device_id": device_id},
+                headers=self.headers,
+                timeout=15,
+            )
+            if response.status_code == 200:
+                return response.json()
+            logger.warning(f"Command poll returned HTTP {response.status_code}")
+            return []
+        except Exception as e:
+            logger.warning(f"Command poll failed (non-fatal): {e}")
+            return []
+
+    def mark_command_done(self, command_id: str, result: dict) -> None:
+        """Report successful command execution back to cloud."""
+        try:
+            self.session.patch(
+                f"{self.base_url}/v1/commands/{command_id}",
+                json={"status": "completed", "result": result},
+                headers=self.headers,
+                timeout=10,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to ack command {command_id}: {e}")
+
+    def mark_command_failed(self, command_id: str, error: str) -> None:
+        """Report failed command execution back to cloud."""
+        try:
+            self.session.patch(
+                f"{self.base_url}/v1/commands/{command_id}",
+                json={"status": "failed", "error_message": error},
+                headers=self.headers,
+                timeout=10,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to ack failed command {command_id}: {e}")
+
+
 class TransmitterError(Exception):
     """Raised when transmission fails."""
     pass

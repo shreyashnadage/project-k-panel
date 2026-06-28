@@ -73,6 +73,22 @@ class TallyClient:
                 "fetch_list": fetch_list
             }
 
+            # Serialize granular filters into Tally static variables.
+            # Tally date format is YYYYMMDD; ISO dates are converted here.
+            if filters:
+                if "from_date" in filters:
+                    payload["static_variables"].append(
+                        {"name": "svFromDate", "value": filters["from_date"].replace("-", "")}
+                    )
+                if "to_date" in filters:
+                    payload["static_variables"].append(
+                        {"name": "svToDate", "value": filters["to_date"].replace("-", "")}
+                    )
+                if "voucher_type" in filters:
+                    payload.setdefault("fetch_filters", []).append(
+                        {"field": "VoucherTypeName", "value": filters["voucher_type"]}
+                    )
+
             # Send request
             response = requests.post(
                 self.base_url,

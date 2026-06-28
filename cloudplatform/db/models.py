@@ -234,3 +234,39 @@ class RegistrationAuditLog(Base):
 
     def __repr__(self):
         return f"<RegistrationAuditLog {self.action}>"
+
+
+class SyncCommand(Base):
+    """
+    Admin-triggered command for on-demand data extraction.
+
+    Lifecycle: pending → fetched → completed | failed
+    Commands that are never fetched expire after COMMAND_TTL_HOURS.
+    """
+    __tablename__ = "sync_commands"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id = Column(String(36), nullable=False, index=True)
+    device_id = Column(String(36), nullable=False, index=True)
+
+    command_type = Column(String(50), nullable=False)
+    # JSON: { company_guid, company_name, voucher_type, from_date, to_date }
+    params = Column(Text, nullable=False, default="{}")
+
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    created_by = Column(String(255))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    fetched_at = Column(DateTime(timezone=True))
+    completed_at = Column(DateTime(timezone=True))
+    expires_at = Column(DateTime(timezone=True))
+
+    # JSON: { records_synced, errors }
+    result = Column(Text)
+    error_message = Column(Text)
+
+    __table_args__ = (
+        Index("ix_commands_device_status", "device_id", "status"),
+    )
+
+    def __repr__(self):
+        return f"<SyncCommand {self.command_type} {self.status}>"

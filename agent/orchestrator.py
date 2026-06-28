@@ -27,6 +27,124 @@ from agent.registration import get_registration
 
 logger = logging.getLogger(__name__)
 
+# Command types the agent will execute. Any type not in this set is rejected
+# even if the cloud sends it, preventing server-side misconfiguration from
+# triggering unintended actions on the client machine.
+COMMAND_ALLOWLIST = {
+    "sync_vouchers",
+    "sync_vouchers_by_type",
+    "sync_ledgers",
+    "sync_full",
+    "health_check",
+}
+
+
+class CommandExecutor:
+    """
+    Executes on-demand commands received from the cloud admin.
+
+    Each command type maps to a specific Tally extraction. Results are
+    transmitted immediately so the admin sees data as soon as the command
+    completes rather than waiting for the next scheduled sync.
+    """
+
+    def __init__(self, orchestrator: "SyncOrchestrator"):
+        self.orch = orchestrator
+
+    def execute(self, command: dict) -> dict:
+        """
+        Dispatch and execute a single command dict from the cloud.
+
+        Returns result dict: { records_synced, errors }
+        Raises ValueError for unknown or disallowed command types.
+        """
+        cmd_type = command.get("command_type", "")
+        params = command.get("params", {})
+
+        if cmd_type not in COMMAND_ALLOWLIST:
+            raise ValueError(f"Command type '{cmd_type}' is not in allowlist")
+
+        logger.info(f"Executing command type={cmd_type} params={params}")
+
+        if cmd_type == "health_check":
+            reachable = self.orch.tally_client.is_reachable()
+            return {"tally_reachable": reachable, "records_synced": 0, "errors": 0}
+
+        if cmd_type == "sync_full":
+            result = self.orch.run_once()
+            return {
+                "records_synced": result.get("transmitted", 0),
+                "errors": result.get("errors", 0),
+            }
+
+        if cmd_type == "sync_ledgers":
+            return self._sync_ledgers(params)
+
+        if cmd_type in ("sync_vouchers", "sync_vouchers_by_type"):
+            return self._sync_vouchers(params)
+
+        raise ValueError(f"Unhandled command type: {cmd_type}")
+
+    def _sync_ledgers(self, params: dict) -> dict:
+        company_name = params.get("company_name", self.orch.tally_company_name)
+        company_guid = params.get("company_guid", self.orch.tally_company_guid)
+
+        response = self.orch.tally_client.request(
+            request_type="export",
+            object_type="Ledger",
+            company_name=company_name,
+            fetch_list=["Name", "Parent", "Opening Balance", "Closing Balance"],
+        )
+        ledgers = parse_ledgers(response)
+
+        for ledger in ledgers:
+            self.orch.queue.enqueue_ledger({
+                "company_guid": company_guid,
+                "ledger_guid": ledger["guid"],
+                "name": ledger["name"],
+                "parent": ledger.get("parent"),
+                "opening_balance": ledger.get("opening_balance"),
+                "closing_balance": ledger.get("closing_balance"),
+            })
+
+        transmitted = self.orch._transmit_queued()
+        return {"records_synced": transmitted, "errors": 0}
+
+    def _sync_vouchers(self, params: dict) -> dict:
+        company_name = params.get("company_name", self.orch.tally_company_name)
+        company_guid = params.get("company_guid", self.orch.tally_company_guid)
+
+        filters: dict = {}
+        if "from_date" in params:
+            filters["from_date"] = params["from_date"]
+        if "to_date" in params:
+            filters["to_date"] = params["to_date"]
+        if "voucher_type" in params:
+            filters["voucher_type"] = params["voucher_type"]
+
+        response = self.orch.tally_client.request(
+            request_type="export",
+            object_type="Voucher",
+            company_name=company_name,
+            fetch_list=["id", "date", "vouchertype", "party", "amount"],
+            filters=filters if filters else None,
+        )
+        vouchers = response.get("data", [])
+
+        for v in vouchers:
+            self.orch.queue.enqueue_voucher({
+                "company_guid": company_guid,
+                "voucher_guid": v["id"],
+                "voucher_type": v.get("voucher_type", ""),
+                "voucher_number": v.get("voucher_number"),
+                "date": v.get("date"),
+                "party": v.get("party"),
+                "amount": v.get("amount"),
+            })
+
+        transmitted = self.orch._transmit_queued()
+        return {"records_synced": transmitted, "errors": 0}
+
 
 class SyncOrchestrator:
     """
@@ -275,6 +393,39 @@ class SyncOrchestrator:
 
         logger.info(f"✓ Transmitted {transmitted} records")
         return transmitted
+
+    def poll_and_execute_commands(self) -> int:
+        """
+        Poll cloud for admin commands and execute them immediately.
+
+        Called from the service's command poller thread every 60s.
+        Returns number of commands executed this cycle.
+        """
+        device_id = self.transmitter.device_id
+        if not device_id:
+            logger.debug("No device_id registered, skipping command poll")
+            return 0
+
+        commands = self.transmitter.get_pending_commands(device_id)
+        if not commands:
+            return 0
+
+        logger.info(f"Received {len(commands)} command(s) from cloud")
+        executor = CommandExecutor(self)
+        executed = 0
+
+        for cmd in commands:
+            cmd_id = cmd["id"]
+            try:
+                result = executor.execute(cmd)
+                self.transmitter.mark_command_done(cmd_id, result)
+                logger.info(f"Command {cmd_id} completed: {result}")
+                executed += 1
+            except Exception as e:
+                logger.error(f"Command {cmd_id} failed: {e}", exc_info=True)
+                self.transmitter.mark_command_failed(cmd_id, str(e))
+
+        return executed
 
 
 def main():
