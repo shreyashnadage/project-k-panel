@@ -121,9 +121,9 @@ export default function KPIWidget() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-      <KPICard label="Total Ledgers"  value={isLoading ? '—' : data!.total_ledgers.toLocaleString('en-IN')}  icon={<Database size={18} />}  accentColor="#14b8a6" loading={isLoading} />
-      <KPICard label="Total Vouchers" value={isLoading ? '—' : data!.total_vouchers.toLocaleString('en-IN')} icon={<FileText size={18} />}  accentColor="#f59e0b" loading={isLoading} />
-      <KPICard label="Last Sync"      value={isLoading ? '—' : formatRelativeTime(data!.last_sync)}          icon={<Clock size={18} />}     accentColor="#3b82f6" loading={isLoading} />
+      <KPICard label="Total Ledgers"  value={!data ? '—' : data.total_ledgers.toLocaleString('en-IN')}  icon={<Database size={18} />}  accentColor="#14b8a6" loading={isLoading} />
+      <KPICard label="Total Vouchers" value={!data ? '—' : data.total_vouchers.toLocaleString('en-IN')} icon={<FileText size={18} />}  accentColor="#f59e0b" loading={isLoading} />
+      <KPICard label="Last Sync"      value={!data ? '—' : formatRelativeTime(data.last_sync)}          icon={<Clock size={18} />}     accentColor="#3b82f6" loading={isLoading} />
       <SyncHealthCard health={data?.sync_health} lastSync={data?.last_sync} loading={isLoading} />
     </div>
   )
