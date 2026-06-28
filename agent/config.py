@@ -9,6 +9,7 @@ Priority: env vars > .env file > Credential Manager
 from __future__ import annotations
 
 import os
+import sys
 import logging
 from pathlib import Path
 from typing import Optional
@@ -53,6 +54,15 @@ def _get(env_var: str, default: str = "") -> str:
     return default
 
 
+def _connector_default() -> Path:
+    """Bundled connector path when installed, dev path otherwise."""
+    if getattr(sys, "frozen", False):
+        bundled = Path(sys.executable).parent / "connector" / "TallyAPIConnectorV2.0.exe"
+        if bundled.exists():
+            return bundled
+    return Path(r"D:\Downloads\integration-setup-lite\integration-setup-lite\TallyAPIConnectorV2.0.exe")
+
+
 class Config:
     # ── Tally ─────────────────────────────────────────────────────────────────
     TALLY_URL: str = os.environ.get("TALLY_URL", "http://localhost:9000")
@@ -66,7 +76,7 @@ class Config:
     # ── Connector ─────────────────────────────────────────────────────────────
     CONNECTOR_EXE_PATH: str = os.environ.get(
         "TALLY_CONNECTOR_EXE_PATH",
-        r"D:\Downloads\integration-setup-lite\integration-setup-lite\TallyAPIConnectorV2.0.exe",
+        str(_connector_default()),
     )
     AUTO_LAUNCH_TALLY: bool = os.environ.get("AUTO_LAUNCH_TALLY", "0") == "1"
 

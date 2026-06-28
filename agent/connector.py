@@ -13,6 +13,7 @@ If this order is violated Tally's HTTP server will not respond.
 from __future__ import annotations
 
 import os
+import sys
 import subprocess
 import time
 import logging
@@ -24,9 +25,21 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONNECTOR_EXE = Path(
+_DEV_CONNECTOR_PATH = Path(
     r"D:\Downloads\integration-setup-lite\integration-setup-lite\TallyAPIConnectorV2.0.exe"
 )
+
+
+def _default_connector_path() -> Path:
+    """Resolve connector exe: bundled install dir first, then dev fallback."""
+    if getattr(sys, "frozen", False):
+        bundled = Path(sys.executable).parent / "connector" / "TallyAPIConnectorV2.0.exe"
+        if bundled.exists():
+            return bundled
+    return _DEV_CONNECTOR_PATH
+
+
+DEFAULT_CONNECTOR_EXE = _default_connector_path()
 TALLY_URL = "http://127.0.0.1:9000"
 
 STARTUP_TIMEOUT_SECONDS = 30

@@ -53,6 +53,8 @@ Source: "..\dist\{#ServiceExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\{#WizardExe}"; DestDir: "{app}"; Flags: ignoreversion
 ; Service management script
 Source: ".\service\install_service.ps1"; DestDir: "{app}\tools"; Flags: ignoreversion
+; Tally API Connector (bundled)
+Source: "D:\Downloads\integration-setup-lite\integration-setup-lite\TallyAPIConnectorV2.0.exe"; DestDir: "{app}\connector"; Flags: ignoreversion
 ; Config template
 Source: ".\config\agent.env.example"; DestDir: "{app}\config"; DestName: "agent.env"; Flags: onlyifdoesntexist
 
