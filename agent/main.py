@@ -36,7 +36,10 @@ def main() -> None:
         Config.validate()
     except RuntimeError as e:
         logger.error(str(e))
+        logger.error("Run the registration wizard or set AGENT_API_KEY / AGENT_DEVICE_ID")
         sys.exit(1)
+
+    logger.info(f"Config source: {Config.source_info()}")
 
     # Auto-launch connector (and optionally TallyPrime)
     connector_exe = Path(Config.CONNECTOR_EXE_PATH)

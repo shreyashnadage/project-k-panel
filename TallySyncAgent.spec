@@ -1,12 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['agent\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[('agent/extractor/tdml_templates', 'agent/extractor/tdml_templates')],
-    hiddenimports=['win32api', 'win32con'],
+    datas=[],
+    hiddenimports=[
+        'keyring',
+        'keyring.backends',
+        'keyring.backends.Windows',
+        'requests',
+        'dotenv',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,4 +40,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='installer\\assets\\icon.ico',
 )

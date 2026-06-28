@@ -13,6 +13,8 @@ Flow:
   5. Done screen
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import json
@@ -23,6 +25,7 @@ import tkinter.ttk as ttk
 import tkinter.font as tkfont
 from tkinter import messagebox
 from pathlib import Path
+from typing import Dict, Optional
 
 import requests
 import keyring
@@ -33,6 +36,7 @@ import keyring
 API_BASE_URL = os.getenv("CLOUD_API_URL", "http://15.206.90.21:8000")
 AGENT_VERSION = "0.4.0"
 KEYRING_SERVICE = "TallySyncAgent"
+KEYRING_USERNAME = "registration"  # must match agent/registration.py CRED_USERNAME
 
 # Colour palette
 BG = "#F8FAFC"
@@ -86,7 +90,7 @@ def _store_credentials(creds: dict):
         "registration_token": creds["registration_token"],
         "api_base_url": API_BASE_URL,
     })
-    keyring.set_password(KEYRING_SERVICE, "credentials", payload)
+    keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, payload)
 
 
 # ---------------------------------------------------------------------------
@@ -348,7 +352,7 @@ class RegistrationWizard(tk.Tk):
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
-        self._pages: dict[str, BasePage] = {}
+        self._pages: Dict[str, BasePage] = {}
         for name, cls in [
             ("welcome", WelcomePage),
             ("key",     KeyPage),
@@ -360,7 +364,7 @@ class RegistrationWizard(tk.Tk):
 
         self.show("welcome")
 
-    def show(self, name: str, data: dict | None = None):
+    def show(self, name: str, data: Optional[dict] = None):
         page = self._pages[name]
         if name == "done" and data:
             page.refresh(data)
