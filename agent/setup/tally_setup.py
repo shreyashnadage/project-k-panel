@@ -24,7 +24,7 @@ class TallySetup:
     """Manages Tally API Connector startup and verification."""
 
     DEFAULT_CONNECTOR_PATH = (
-        r"D:\Downloads\integration-setup\integration-setup\TallyAPIConnectorV1.0.exe"
+        r"D:\Downloads\integration-setup\integration-setup\TallyAPIConnectorV2.0.exe"
     )
     DEFAULT_SETUP_SCRIPT = (
         r"D:\Downloads\integration-setup\integration-setup\RunWithoutBrowser.ps1"
@@ -42,7 +42,7 @@ class TallySetup:
         Initialize Tally setup manager.
 
         Args:
-            connector_path: Path to TallyAPIConnectorV1.0.exe
+            connector_path: Path to TallyAPIConnectorV2.0.exe
             setup_script: Path to RunWithoutBrowser.ps1
         """
         self.connector_path = connector_path or self.DEFAULT_CONNECTOR_PATH
@@ -68,7 +68,7 @@ class TallySetup:
         Start TallyAPIConnector using PowerShell script.
 
         The script:
-        1. Runs TallyAPIConnectorV1.0.exe
+        1. Runs TallyAPIConnectorV2.0.exe
         2. Kills any browser windows it opens
         3. Keeps the connector process running
 

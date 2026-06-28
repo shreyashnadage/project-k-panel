@@ -26,6 +26,13 @@ class Config:
     DEVICE_ID: str   = os.environ.get("AGENT_DEVICE_ID", "")
     TENANT_ID: str   = os.environ.get("AGENT_TENANT_ID", "")
 
+    # ── Connector ─────────────────────────────────────────────────────────────
+    CONNECTOR_EXE_PATH: str = os.environ.get(
+        "TALLY_CONNECTOR_EXE_PATH",
+        r"D:\Downloads\integration-setup-lite\integration-setup-lite\TallyAPIConnectorV2.0.exe",
+    )
+    AUTO_LAUNCH_TALLY: bool = os.environ.get("AUTO_LAUNCH_TALLY", "0") == "1"
+
     # ── Poll settings ─────────────────────────────────────────────────────────
     POLL_INTERVAL_SECONDS: int = int(os.environ.get("POLL_INTERVAL", "15"))
 

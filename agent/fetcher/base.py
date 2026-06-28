@@ -9,7 +9,7 @@ API shape (confirmed working):
   Response: { status: "1", data: { collection: [...] } }
 
 CRITICAL: Tally is single-threaded. Never send concurrent requests.
-          TallyAPIConnectorV1.0.exe must be running before any call.
+          TallyAPIConnectorV2.0.exe must be running before any call.
 """
 
 import time
@@ -151,7 +151,7 @@ class TallyHTTPClient:
             except requests.exceptions.ConnectionError as e:
                 raise TallyConnectionError(
                     f"Cannot connect to Tally at {self.base_url}. "
-                    "Is TallyPrime open and TallyAPIConnectorV1.0.exe running?"
+                    "Is TallyPrime open and TallyAPIConnectorV2.0.exe running?"
                 ) from e
             except requests.exceptions.Timeout as e:
                 raise TallyTimeoutError(

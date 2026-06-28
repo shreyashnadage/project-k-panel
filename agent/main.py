@@ -4,16 +4,18 @@ Tally Sync Agent — entry point.
 
 Startup:
 1. Load config (env vars / .env)
-2. Verify Tally is reachable
-3. Start CommandPoller (background thread) — polls cloud, executes commands, uploads
-4. Block until Ctrl-C / signal
+2. Auto-launch TallyAPIConnectorV2.0.exe (and optionally TallyPrime)
+3. Verify Tally HTTP API is responding
+4. Start CommandPoller (background thread) — polls cloud, executes commands, uploads
+5. Block until Ctrl-C
 """
 
-import signal
 import sys
 import logging
+from pathlib import Path
 
 from .config import Config
+from .connector import ensure_tally_ready
 from .engine import CommandEngine
 from .poller import CommandPoller
 
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     logger.info("=" * 60)
-    logger.info("Tally Sync Agent starting…")
+    logger.info("Tally Sync Agent starting...")
     logger.info("=" * 60)
 
     try:
@@ -36,16 +38,22 @@ def main() -> None:
         logger.error(str(e))
         sys.exit(1)
 
-    engine = CommandEngine(tally_url=Config.TALLY_URL)
+    # Auto-launch connector (and optionally TallyPrime)
+    connector_exe = Path(Config.CONNECTOR_EXE_PATH)
+    tally_ok = ensure_tally_ready(
+        connector_exe=connector_exe,
+        auto_launch_tally=Config.AUTO_LAUNCH_TALLY,
+    )
 
-    # Best-effort connectivity check — don't block startup
-    if engine.is_tally_ready():
-        logger.info(f"Tally is reachable at {Config.TALLY_URL}")
+    if tally_ok:
+        logger.info("Tally HTTP API is ready — starting poller")
     else:
         logger.warning(
-            f"Tally not reachable at {Config.TALLY_URL}. "
-            "Commands will fail until TallyPrime + TallyAPIConnectorV1.0.exe are running."
+            "Tally HTTP API not ready. Agent will start anyway — "
+            "commands will fail until Tally is available."
         )
+
+    engine = CommandEngine(tally_url=Config.TALLY_URL)
 
     poller = CommandPoller(
         cloud_base_url=Config.CLOUD_URL,
@@ -61,11 +69,11 @@ def main() -> None:
     logger.info("Press Ctrl-C to stop.")
 
     try:
+        import time
         while True:
-            import time
             time.sleep(1)
     except KeyboardInterrupt:
-        logger.info("Ctrl-C received — stopping…")
+        logger.info("Ctrl-C received — stopping...")
         poller.stop()
         sys.exit(0)
 
