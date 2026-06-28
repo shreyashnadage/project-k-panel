@@ -71,6 +71,7 @@ htmlcov/
 certificate.txt
 tally-sync-admin_accessKeys.csv
 tally-sync-admin_credentials.csv
+tally_test_temp_script.py
 *.bak
 
 

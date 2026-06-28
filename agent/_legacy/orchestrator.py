@@ -89,13 +89,7 @@ class CommandExecutor:
         company_name = params.get("company_name", self.orch.tally_company_name)
         company_guid = params.get("company_guid", self.orch.tally_company_guid)
 
-        response = self.orch.tally_client.request(
-            request_type="export",
-            object_type="Ledger",
-            company_name=company_name,
-            fetch_list=["Name", "Parent", "Opening Balance", "Closing Balance"],
-        )
-        ledgers = parse_ledgers(response)
+        ledgers = self.orch.tally_client.get_ledgers(company_name)
 
         for ledger in ledgers:
             self.orch.queue.enqueue_ledger({
@@ -111,25 +105,18 @@ class CommandExecutor:
         return {"records_synced": transmitted, "errors": 0}
 
     def _sync_vouchers(self, params: dict) -> dict:
+        from datetime import datetime, timedelta
         company_name = params.get("company_name", self.orch.tally_company_name)
         company_guid = params.get("company_guid", self.orch.tally_company_guid)
 
-        filters: dict = {}
-        if "from_date" in params:
-            filters["from_date"] = params["from_date"]
-        if "to_date" in params:
-            filters["to_date"] = params["to_date"]
-        if "voucher_type" in params:
-            filters["voucher_type"] = params["voucher_type"]
+        today = datetime.now().date()
+        from_date = params.get("from_date", (today - timedelta(days=30)).strftime("%Y%m%d"))
+        to_date = params.get("to_date", today.strftime("%Y%m%d"))
+        # Normalise: allow YYYY-MM-DD or YYYYMMDD
+        from_date = from_date.replace("-", "")
+        to_date = to_date.replace("-", "")
 
-        response = self.orch.tally_client.request(
-            request_type="export",
-            object_type="Voucher",
-            company_name=company_name,
-            fetch_list=["id", "date", "vouchertype", "party", "amount"],
-            filters=filters if filters else None,
-        )
-        vouchers = response.get("data", [])
+        vouchers = self.orch.tally_client.get_vouchers(company_name, from_date, to_date)
 
         for v in vouchers:
             self.orch.queue.enqueue_voucher({
@@ -287,21 +274,9 @@ class SyncOrchestrator:
         return result
 
     def _extract_ledgers(self) -> list:
-        """
-        Extract ledgers from Tally.
-
-        Returns:
-            List of ledger dicts
-        """
         logger.info("Extracting ledgers...")
         try:
-            response = self.tally_client.request(
-                request_type="export",
-                object_type="Ledger",
-                company_name=self.tally_company_name,
-                fetch_list=["Name", "Parent", "Opening Balance", "Closing Balance"]
-            )
-            ledgers = parse_ledgers(response)
+            ledgers = self.tally_client.get_ledgers(self.tally_company_name)
             logger.info(f"✓ Extracted {len(ledgers)} ledgers")
             return ledgers
         except TallyConnectionError as e:
@@ -309,29 +284,16 @@ class SyncOrchestrator:
             raise
 
     def _extract_vouchers(self) -> list:
-        """
-        Extract vouchers from Tally (last 30 days).
-
-        Returns:
-            List of voucher dicts
-        """
         logger.info("Extracting vouchers...")
-        # Phase 3: Simple date range (last 30 days)
-        # Phase 3+: Use watermark for incremental sync
         from datetime import datetime, timedelta
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=30)
-
         try:
-            response = self.tally_client.request(
-                request_type="export",
-                object_type="Voucher",
+            vouchers = self.tally_client.get_vouchers(
                 company_name=self.tally_company_name,
-                fetch_list=["id", "date", "vouchertype", "party", "amount"]
+                from_date=start_date.strftime("%Y%m%d"),
+                to_date=end_date.strftime("%Y%m%d"),
             )
-            # For Phase 3, we'll just return the raw response
-            # In Phase 3+ we'll add watermark filtering
-            vouchers = response.get("data", [])
             logger.info(f"✓ Extracted {len(vouchers)} vouchers")
             return vouchers
         except TallyConnectionError as e:
