@@ -126,6 +126,16 @@ export const adminApi = {
     const { data } = await authClient().get(`/v1/admin/clients/${clientId}/api-key`)
     return data
   },
+
+  onboardClient: async (req: {
+    company_name: string; email: string; phone?: string; gst_id?: string; plan?: string
+  }): Promise<{
+    client_id: string; company_name: string; email: string; status: string;
+    plan: string; installation_key: string; key_expires_at: string;
+  }> => {
+    const { data } = await authClient().post('/v1/admin/onboard-client', req)
+    return data
+  },
 }
 
 // ─── Legacy api object (kept for backward compat during migration) ──

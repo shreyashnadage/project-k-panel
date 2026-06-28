@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { adminApi } from '@/lib/api'
-import { Search, Users, Building2, Wifi, WifiOff } from 'lucide-react'
+import { Search, Users, Building2, Wifi, WifiOff, UserPlus } from 'lucide-react'
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return 'Never'
@@ -52,8 +52,20 @@ export default function ClientsListPage() {
             Onboarded MSME businesses using Tally Sync
           </p>
         </div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#94a3b8', background: '#1e293b', padding: '6px 14px', borderRadius: 8, border: '1px solid #334155' }}>
-          {data?.total ?? '—'} clients
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#94a3b8', background: '#1e293b', padding: '6px 14px', borderRadius: 8, border: '1px solid #334155' }}>
+            {data?.total ?? '—'} clients
+          </div>
+          <button
+            onClick={() => router.push('/clients/onboard')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+              borderRadius: 8, border: 'none', background: '#14b8a6', color: '#0f172a',
+              cursor: 'pointer', fontFamily: 'Inter, system-ui', fontSize: 13, fontWeight: 600,
+            }}
+          >
+            <UserPlus size={15} /> Onboard Client
+          </button>
         </div>
       </div>
 
