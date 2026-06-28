@@ -16,6 +16,8 @@ a = Analysis(
         'win32service',
         'win32event',
         'servicemanager',
+        'sentry_sdk',
+        'sentry_sdk.integrations',
     ],
     hookspath=[],
     hooksconfig={},

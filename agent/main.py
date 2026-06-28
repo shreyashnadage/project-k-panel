@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 
 from .config import Config
+from .telemetry import init as init_telemetry, set_user_context, capture_exception, add_breadcrumb
 from .connector import ensure_tally_ready
 from .engine import CommandEngine
 from .poller import CommandPoller
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    init_telemetry(component="agent")
+
     logger.info("=" * 60)
     logger.info("Tally Sync Agent starting...")
     logger.info("=" * 60)
@@ -35,10 +38,12 @@ def main() -> None:
     try:
         Config.validate()
     except RuntimeError as e:
+        capture_exception(e, stage="config_validation")
         logger.error(str(e))
         logger.error("Run the registration wizard or set AGENT_API_KEY / AGENT_DEVICE_ID")
         sys.exit(1)
 
+    set_user_context(client_id=Config.TENANT_ID, device_id=Config.DEVICE_ID)
     logger.info(f"Config source: {Config.source_info()}")
 
     # Auto-launch connector (and optionally TallyPrime)

@@ -32,6 +32,27 @@ import requests
 import keyring
 
 # ---------------------------------------------------------------------------
+# Sentry telemetry (optional — disabled if SENTRY_DSN not set)
+# ---------------------------------------------------------------------------
+def _init_sentry():
+    dsn = os.getenv("SENTRY_DSN", "")
+    if not dsn:
+        return
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+            release=f"tally-sync-agent@{AGENT_VERSION}",
+            send_default_pii=False,
+            attach_stacktrace=True,
+        )
+        sentry_sdk.set_tag("component", "wizard")
+        sentry_sdk.set_tag("hostname", socket.gethostname())
+    except Exception:
+        pass
+
+# ---------------------------------------------------------------------------
 # Config  (overridable via environment)
 # ---------------------------------------------------------------------------
 API_BASE_URL = os.getenv("CLOUD_API_URL", "http://localhost:8000")
@@ -115,6 +136,18 @@ def _delete_credentials():
     try:
         keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
     except keyring.errors.PasswordDeleteError:
+        pass
+
+
+def _sentry_capture(exc: BaseException, **extra):
+    """Capture exception to Sentry if initialised."""
+    try:
+        import sentry_sdk
+        with sentry_sdk.new_scope() as scope:
+            for k, v in extra.items():
+                scope.set_extra(k, v)
+            sentry_sdk.capture_exception(exc)
+    except Exception:
         pass
 
 
@@ -356,13 +389,16 @@ class KeyPage(BasePage):
             _store_credentials(creds)
             self.after(0, lambda: self.controller.show("done", data=creds))
         except ValueError as e:
+            _sentry_capture(e, stage="register_device", key_prefix=key[:8])
             self.after(0, lambda: self._set_error(str(e)))
-        except requests.ConnectionError:
+        except requests.ConnectionError as e:
+            _sentry_capture(e, stage="register_device_connection", server=API_BASE_URL)
             self.after(0, lambda: self._set_error(
                 "Cannot reach the Tally Sync server.\n"
                 "Check your internet connection and try again."
             ))
         except Exception as e:
+            _sentry_capture(e, stage="register_device_unexpected")
             self.after(0, lambda: self._set_error(f"Unexpected error: {e}"))
         finally:
             self.after(0, lambda: self._set_busy(False))
@@ -496,6 +532,7 @@ class RegistrationWizard(tk.Tk):
 # ---------------------------------------------------------------------------
 
 def main():
+    _init_sentry()
     app = RegistrationWizard()
     app.mainloop()
 

@@ -11,6 +11,8 @@ a = Analysis(
         'keyring.backends.Windows',
         'requests',
         'dotenv',
+        'sentry_sdk',
+        'sentry_sdk.integrations',
     ],
     hookspath=[],
     hooksconfig={},

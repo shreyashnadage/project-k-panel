@@ -10,6 +10,8 @@ a = Analysis(
         'keyring.backends',
         'keyring.backends.Windows',
         'requests',
+        'sentry_sdk',
+        'sentry_sdk.integrations',
     ],
     hookspath=[],
     hooksconfig={},

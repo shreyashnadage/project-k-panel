@@ -75,8 +75,12 @@ class TallySyncService(win32serviceutil.ServiceFramework):
         logger.info("Tally Sync Agent service starting")
 
         try:
+            from agent.telemetry import init as init_telemetry, set_user_context, capture_exception
+            init_telemetry(component="service")
+
             from agent.config import Config
             Config.validate()
+            set_user_context(client_id=Config.TENANT_ID, device_id=Config.DEVICE_ID)
             logger.info(f"Config source: {Config.source_info()}")
 
             from agent.connector import ensure_tally_ready
@@ -110,6 +114,7 @@ class TallySyncService(win32serviceutil.ServiceFramework):
 
         except Exception as e:
             logger.error(f"Service error: {e}", exc_info=True)
+            capture_exception(e, stage="service_run")
             servicemanager.LogErrorMsg(f"TallySyncAgent error: {e}")
 
         logger.info("Service stopped")

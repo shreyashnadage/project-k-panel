@@ -17,6 +17,7 @@ import requests
 
 from .engine import CommandEngine, CommandResult
 from .queue.manager import QueueManager
+from .telemetry import capture_exception, add_breadcrumb
 
 logger = logging.getLogger(__name__)
 
@@ -97,9 +98,11 @@ class CommandPoller:
                     backoff = self.poll_interval
             except requests.exceptions.ConnectionError:
                 logger.warning("[Poller] Cloud unreachable — will retry")
+                add_breadcrumb("Cloud unreachable", category="poller", level="warning")
                 backoff = min(backoff * 2, POLL_INTERVAL_MAX)
             except Exception as e:
                 logger.error(f"[Poller] Unexpected error: {e}")
+                capture_exception(e, stage="poller_loop")
                 backoff = min(backoff * 2, POLL_INTERVAL_MAX)
 
             self._stop_event.wait(backoff)
