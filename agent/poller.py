@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional
 import requests
 
 from .engine import CommandEngine, CommandResult
+from .queue.manager import QueueManager
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ class CommandPoller:
         tenant_id: str = "",
         engine: Optional[CommandEngine] = None,
         poll_interval: int = POLL_INTERVAL_BASE,
+        queue_db_path: str = "agent_queue.db",
     ):
         self.cloud_base_url = cloud_base_url.rstrip("/")
         self.device_id      = device_id
@@ -62,6 +64,7 @@ class CommandPoller:
         self.tenant_id      = tenant_id or device_id
         self.engine         = engine or CommandEngine()
         self.poll_interval  = poll_interval
+        self.queue           = QueueManager(db_path=queue_db_path)
         self._stop_event    = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -82,13 +85,16 @@ class CommandPoller:
         backoff = self.poll_interval
         while not self._stop_event.is_set():
             try:
+                # Flush any queued uploads first
+                self._flush_queue()
+
                 commands = self._poll_pending()
                 if commands:
                     for cmd in commands:
                         self._handle(cmd)
-                    backoff = self.poll_interval  # reset on success
+                    backoff = self.poll_interval
                 else:
-                    backoff = self.poll_interval  # no commands is fine
+                    backoff = self.poll_interval
             except requests.exceptions.ConnectionError:
                 logger.warning("[Poller] Cloud unreachable — will retry")
                 backoff = min(backoff * 2, POLL_INTERVAL_MAX)
@@ -490,5 +496,38 @@ class CommandPoller:
                 f"[Poller] Uploaded {count} {label}(s) — "
                 f"accepted={body.get('accepted')}, duplicates={body.get('duplicates')}"
             )
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            logger.warning(f"[Poller] Cloud unreachable — queueing {count} {label}(s) for retry")
+            self.queue.enqueue(endpoint, payload, label, count)
         except Exception as e:
             logger.error(f"[Poller] Upload failed for {label}: {e}")
+            self.queue.enqueue(endpoint, payload, label, count)
+
+    def _flush_queue(self) -> None:
+        """Try to send any queued uploads."""
+        pending = self.queue.get_pending(limit=20)
+        if not pending:
+            return
+
+        logger.info(f"[Poller] Flushing {len(pending)} queued upload(s)")
+        for item in pending:
+            try:
+                resp = requests.post(
+                    f"{self.cloud_base_url}{item['endpoint']}",
+                    json=item["payload"],
+                    headers=self._auth_headers(),
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                body = resp.json()
+                self.queue.mark_sent(item["id"])
+                logger.info(
+                    f"[Poller] Queue flush: {item['label']} — "
+                    f"accepted={body.get('accepted')}, duplicates={body.get('duplicates')}"
+                )
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                logger.warning("[Poller] Cloud still unreachable — stopping queue flush")
+                break
+            except Exception as e:
+                self.queue.mark_failed(item["id"], str(e))
+                logger.error(f"[Poller] Queue flush failed for {item['label']}: {e}")
