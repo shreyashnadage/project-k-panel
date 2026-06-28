@@ -53,7 +53,7 @@ export default function OnboardClientPage() {
     const e: Record<string, string> = {}
     if (!form.company_name.trim() || form.company_name.trim().length < 3) e.company_name = 'Company name must be at least 3 characters'
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid email address'
-    if (form.gst_id && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gst_id)) e.gst_id = 'Invalid GST format (e.g. 18AABCU12345K1Z5)'
+    if (form.gst_id && form.gst_id.length !== 15) e.gst_id = 'GST number must be 15 characters'
     setErrors(e)
     return Object.keys(e).length === 0
   }
