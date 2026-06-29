@@ -57,12 +57,44 @@ Backend is a separate repo (cloud platform). This frontend connects via `NEXT_PU
 - `GET /api/dashboard/sync-history`
 - `POST /api/dashboard/sync-command`
 
+## Design system (Munimco)
+
+**Essence:** Trustworthy Indian MSME fintech — cream paper (light), navy ink, teal for "Co"/collaboration/data-up, saffron only for highlights/alerts. Rounded UI (10–14px), hairline borders. No purple AI gradients, no coin/rupee clipart.
+
+**Fonts**
+- Sans: Plus Jakarta Sans (400 body, 500 labels, 600 subheads, 700 KPIs/titles)
+- Mono: JetBrains Mono (amounts, GSTIN, ledger IDs, table numeric columns)
+
+**Brand tokens** — import from `src/lib/brand/tokens.ts`; chart theme from `src/lib/charts/theme.ts`
+
+**Colors** — use CSS variables / `munimco-*` Tailwind tokens, not raw slate/teal defaults
+
+| Role | Light | Dark |
+|------|-------|------|
+| Page bg | `#F5F0E8` cream | `#0D1B2A` navy |
+| Surface / card | `#FFFFFF` | `#1B263B` |
+| Muted surface | `#FAF7F2` | `#152A40` |
+| Primary text | `#0D1B2A` | `#F5F0E8` |
+| Secondary text | `#415A77` | `#A8B8C8` |
+| Border | `#E8E2D8` | `#2D3E50` |
+| Accent / link / success | `#2A9D8F` | `#3DB8A9` |
+| Warning / highlight | `#E07A3D` | `#E07A3D` |
+| Error | `#C45C4A` | `#C45C4A` |
+
+**Radius:** `6px` sm, `10px` md (buttons/inputs), `14px` lg (cards), `20px` xl (modals)
+
+**Sidebar:** navy bg, active nav = 3px left border teal-dark + navy-elevated bg, text cream
+
+**Charts (Recharts):** series order — navy, teal, amber, saffron; grid `#2D3E50` (dark)
+
+**Tables:** `text-sm`, mono for currency; header `text-secondary` + bottom border
+
+**Forms (RHF + Zod):** inputs `rounded-munimco-md`, border `munimco-border-dark`, focus ring `2px #3DB8A9`
+
 ## Working Preferences
 
-- **Code Style**: Follow existing inline style patterns (no CSS modules yet)
+- **Code Style**: Follow existing inline style patterns (no CSS modules yet); use local `C` constant for color values
 - **Testing**: Vitest + React Testing Library
-- **Fonts**: Outfit (headings), Inter (body), JetBrains Mono (data/monospace)
-- **Color scheme**: Dark theme — slate-900 backgrounds, teal-500 accents
 - **Components**: Inline in route files for now; extract when reuse emerges
 
 ## Commands

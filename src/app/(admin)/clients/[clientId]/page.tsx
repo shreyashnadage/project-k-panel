@@ -2,11 +2,25 @@
 
 import { useClientContext } from '@/lib/client-context'
 import { useQuery } from '@tanstack/react-query'
-import { Database, FileText, Clock, Activity, AreaChart as AreaChartIcon } from 'lucide-react'
+import { Database, FileText, Clock, Activity } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { munimco } from '@/lib/brand/tokens'
+import { chartGridDark, chartAxisDark } from '@/lib/charts/theme'
+
+const C = {
+  navyMuted:  '#1b263b',
+  navyElev:   '#152a40',
+  borderDark: '#2d3e50',
+  tealDark:   '#3db8a9',
+  cream:      '#f5f0e8',
+  textSec:    '#a8b8c8',
+  amber:      '#d4a373',
+  saffron:    '#e07a3d',
+  error:      '#c45c4a',
+}
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return 'Never'
@@ -24,7 +38,7 @@ function KPICard({ label, value, icon, accentColor, sub, loading }: {
 }) {
   if (loading) {
     return (
-      <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24 }}>
+      <div style={{ background: C.navyMuted, border: `1px solid ${C.borderDark}`, borderRadius: 14, padding: 24 }}>
         <div className="skeleton" style={{ height: 16, width: '60%', marginBottom: 16 }} />
         <div className="skeleton" style={{ height: 40, width: '75%' }} />
       </div>
@@ -33,7 +47,7 @@ function KPICard({ label, value, icon, accentColor, sub, loading }: {
   return (
     <div
       style={{
-        background: '#1e293b', border: '1px solid #334155', borderRadius: 12,
+        background: C.navyMuted, border: `1px solid ${C.borderDark}`, borderRadius: 14,
         padding: 24, transition: 'transform 0.2s ease, box-shadow 0.2s ease',
       }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)' }}
@@ -46,12 +60,12 @@ function KPICard({ label, value, icon, accentColor, sub, loading }: {
         }}>
           {icon}
         </div>
-        <span style={{ fontFamily: 'Inter, system-ui', fontSize: 13, fontWeight: 500, color: '#94a3b8' }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 500, color: C.textSec }}>{label}</span>
       </div>
-      <div style={{ fontFamily: 'Outfit, system-ui', fontWeight: 800, fontSize: 36, lineHeight: 1, color: '#f1f5f9', marginBottom: 6 }}>
+      <div style={{ fontWeight: 700, fontSize: 36, lineHeight: 1, color: C.cream, marginBottom: 6, fontFamily: 'var(--font-mono)' }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, system-ui' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12, color: C.textSec }}>{sub}</div>}
     </div>
   )
 }
@@ -91,49 +105,51 @@ export default function ClientDashboardPage() {
   if (ctxError) {
     return (
       <div className="page-enter" style={{ textAlign: 'center', padding: 64 }}>
-        <p style={{ color: '#f59e0b', fontSize: 16 }}>{ctxError}</p>
-        <p style={{ color: '#64748b', fontSize: 14, marginTop: 8 }}>This client may not have any registered devices yet.</p>
+        <p style={{ color: C.saffron, fontSize: 16 }}>{ctxError}</p>
+        <p style={{ color: C.textSec, fontSize: 14, marginTop: 8 }}>This client may not have any registered devices yet.</p>
       </div>
     )
   }
 
+  const healthColor = kpis?.sync_health === 'healthy' ? C.tealDark : kpis?.sync_health === 'warning' ? C.saffron : C.error
+
   return (
     <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div>
-        <h2 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 28, color: '#f1f5f9', margin: 0 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 28, color: C.cream, margin: 0 }}>
           {companyName}
         </h2>
-        <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
+        <p style={{ color: C.textSec, fontSize: 14, marginTop: 4 }}>
           Client dashboard — sync metrics and data overview
         </p>
       </div>
 
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-        <KPICard label="Total Ledgers" value={kpiLoading ? '—' : (kpis?.total_ledgers ?? 0).toLocaleString('en-IN')} icon={<Database size={18} />} accentColor="#14b8a6" loading={kpiLoading} />
-        <KPICard label="Total Vouchers" value={kpiLoading ? '—' : (kpis?.total_vouchers ?? 0).toLocaleString('en-IN')} icon={<FileText size={18} />} accentColor="#f59e0b" loading={kpiLoading} />
-        <KPICard label="Last Sync" value={kpiLoading ? '—' : formatRelativeTime(kpis?.last_sync ?? null)} icon={<Clock size={18} />} accentColor="#3b82f6" loading={kpiLoading} />
+        <KPICard label="Total Ledgers" value={kpiLoading ? '—' : (kpis?.total_ledgers ?? 0).toLocaleString('en-IN')} icon={<Database size={18} />} accentColor={C.tealDark} loading={kpiLoading} />
+        <KPICard label="Total Vouchers" value={kpiLoading ? '—' : (kpis?.total_vouchers ?? 0).toLocaleString('en-IN')} icon={<FileText size={18} />} accentColor={C.amber} loading={kpiLoading} />
+        <KPICard label="Last Sync" value={kpiLoading ? '—' : formatRelativeTime(kpis?.last_sync ?? null)} icon={<Clock size={18} />} accentColor={C.saffron} loading={kpiLoading} />
         <KPICard
           label="Sync Health"
           value={kpiLoading ? '—' : kpis?.sync_health === 'healthy' ? 'Healthy' : kpis?.sync_health === 'warning' ? 'Warning' : 'Error'}
           icon={<Activity size={18} />}
-          accentColor={kpis?.sync_health === 'healthy' ? '#22c55e' : kpis?.sync_health === 'warning' ? '#f59e0b' : '#ef4444'}
+          accentColor={healthColor}
           loading={kpiLoading}
           sub={kpiLoading ? undefined : `Last sync: ${formatRelativeTime(kpis?.last_sync ?? null)}`}
         />
       </div>
 
       {/* Cash Flow */}
-      <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24 }}>
-        <h3 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 600, fontSize: 16, color: '#f1f5f9', margin: '0 0 4px' }}>
+      <div style={{ background: C.navyMuted, border: `1px solid ${C.borderDark}`, borderRadius: 14, padding: 24 }}>
+        <h3 style={{ fontWeight: 600, fontSize: 16, color: C.cream, margin: '0 0 4px' }}>
           Cash Flow
         </h3>
-        <p style={{ fontSize: 12, color: '#64748b', marginTop: 0, marginBottom: 20 }}>Monthly transaction volume (last 6 months)</p>
+        <p style={{ fontSize: 12, color: C.textSec, marginTop: 0, marginBottom: 20 }}>Monthly transaction volume (last 6 months)</p>
 
         {cfLoading ? (
           <div className="skeleton" style={{ height: 280, borderRadius: 8 }} />
         ) : chartData.length === 0 ? (
-          <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+          <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.textSec }}>
             No cash flow data available.
           </div>
         ) : (
@@ -141,20 +157,20 @@ export default function ClientDashboardPage() {
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
+                  <stop offset="5%" stopColor={munimco.coTealDark} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={munimco.coTealDark} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e3a3a" vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={formatINR} tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} width={60} />
+              <CartesianGrid {...chartGridDark} vertical={false} />
+              <XAxis dataKey="month" tick={chartAxisDark} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={formatINR} tick={chartAxisDark} axisLine={false} tickLine={false} width={60} />
               <Tooltip
-                contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 13 }}
-                labelStyle={{ color: '#94a3b8' }}
-                itemStyle={{ color: '#14b8a6' }}
+                contentStyle={{ background: munimco.navy, border: `1px solid ${munimco.borderDark}`, borderRadius: 8, fontSize: 13 }}
+                labelStyle={{ color: munimco.textSecondaryDark }}
+                itemStyle={{ color: munimco.coTealDark }}
                 formatter={(v) => [Number(v).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }), 'Amount']}
               />
-              <Area type="monotone" dataKey="amount" stroke="#14b8a6" strokeWidth={2} fill="url(#tealGrad)" dot={{ fill: '#14b8a6', r: 4, strokeWidth: 0 }} />
+              <Area type="monotone" dataKey="amount" stroke={munimco.coTealDark} strokeWidth={2} fill="url(#tealGrad)" dot={{ fill: munimco.coTealDark, r: 4, strokeWidth: 0 }} />
             </AreaChart>
           </ResponsiveContainer>
         )}

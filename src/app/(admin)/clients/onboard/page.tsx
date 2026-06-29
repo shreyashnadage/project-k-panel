@@ -74,11 +74,11 @@ export default function OnboardClientPage() {
   const inputStyle = (field: string) => ({
     width: '100%',
     padding: '12px 14px 12px 40px',
-    borderRadius: 8,
-    border: `1px solid ${errors[field] ? '#ef4444' : '#334155'}`,
-    background: '#0f172a',
-    color: '#f1f5f9',
-    fontFamily: 'Inter, system-ui',
+    borderRadius: 10,
+    border: `1px solid ${errors[field] ? '#c45c4a' : '#2d3e50'}`,
+    background: '#0d1b2a',
+    color: '#f5f0e8',
+    
     fontSize: 14,
     outline: 'none',
     transition: 'border-color 0.15s',
@@ -90,46 +90,46 @@ export default function OnboardClientPage() {
       <div className="page-enter" style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div style={{ textAlign: 'center', padding: '12px 0' }}>
           <div style={{
-            width: 64, height: 64, borderRadius: 16, background: '#22c55e20',
+            width: 64, height: 64, borderRadius: 16, background: '#3db8a920',
             display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
           }}>
-            <Check size={32} color="#22c55e" />
+            <Check size={32} color="#3db8a9" />
           </div>
-          <h2 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 24, color: '#f1f5f9', margin: '0 0 4px' }}>
+          <h2 style={{ fontWeight: 700, fontSize: 24, color: '#f5f0e8', margin: '0 0 4px' }}>
             Client Onboarded
           </h2>
-          <p style={{ color: '#64748b', fontSize: 14 }}>
+          <p style={{ color: '#a8b8c8', fontSize: 14 }}>
             {result.company_name} is ready. Share the installation key below.
           </p>
         </div>
 
         {/* Installation Key Card */}
         <div style={{
-          background: '#1e293b', border: '2px solid #14b8a640', borderRadius: 12, padding: 24,
+          background: '#1b263b', border: '2px solid #3db8a940', borderRadius: 14, padding: 24,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <Key size={16} color="#14b8a6" />
-            <span style={{ fontFamily: 'Inter, system-ui', fontWeight: 600, fontSize: 13, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <Key size={16} color="#3db8a9" />
+            <span style={{ fontWeight: 600, fontSize: 13, color: '#a8b8c8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Installation Key
             </span>
           </div>
 
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-            background: '#0f172a', borderRadius: 8, padding: '14px 16px', border: '1px solid #334155',
+            background: '#0d1b2a', borderRadius: 10, padding: '14px 16px', border: '1px solid #2d3e50',
           }}>
             <code style={{
-              fontFamily: 'JetBrains Mono, monospace', fontSize: 20, fontWeight: 700,
-              color: '#14b8a6', letterSpacing: '0.08em',
+              fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700,
+              color: '#3db8a9', letterSpacing: '0.08em',
             }}>
               {result.installation_key}
             </code>
             <button
               onClick={copyKey}
               style={{
-                padding: '8px 14px', borderRadius: 6, border: '1px solid #334155',
-                background: copied ? '#22c55e20' : '#1e293b',
-                color: copied ? '#4ade80' : '#94a3b8',
+                padding: '8px 14px', borderRadius: 6, border: '1px solid #2d3e50',
+                background: copied ? '#3db8a920' : '#1b263b',
+                color: copied ? '#3db8a9' : '#a8b8c8',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
                 fontSize: 13, fontWeight: 500, transition: 'all 0.15s', flexShrink: 0,
               }}
@@ -141,31 +141,31 @@ export default function OnboardClientPage() {
 
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: '#64748b' }}>Expires</span>
-              <span style={{ color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>
+              <span style={{ color: '#a8b8c8' }}>Expires</span>
+              <span style={{ color: '#a8b8c8', fontFamily: 'var(--font-mono)' }}>
                 {new Date(result.key_expires_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: '#64748b' }}>Client ID</span>
-              <span style={{ color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{result.client_id}</span>
+              <span style={{ color: '#a8b8c8' }}>Client ID</span>
+              <span style={{ color: '#a8b8c8', fontFamily: 'var(--font-mono)' }}>{result.client_id}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: '#64748b' }}>Plan</span>
-              <span style={{ color: '#94a3b8', textTransform: 'capitalize' }}>{result.plan}</span>
+              <span style={{ color: '#a8b8c8' }}>Plan</span>
+              <span style={{ color: '#a8b8c8', textTransform: 'capitalize' }}>{result.plan}</span>
             </div>
           </div>
         </div>
 
         {/* Instructions */}
-        <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20 }}>
-          <h3 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 600, fontSize: 15, color: '#f1f5f9', margin: '0 0 12px' }}>
+        <div style={{ background: '#1b263b', border: '1px solid #2d3e50', borderRadius: 14, padding: 20 }}>
+          <h3 style={{ fontWeight: 600, fontSize: 15, color: '#f5f0e8', margin: '0 0 12px' }}>
             Next Steps
           </h3>
-          <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, color: '#94a3b8', fontSize: 13, lineHeight: 1.5 }}>
+          <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, color: '#a8b8c8', fontSize: 13, lineHeight: 1.5 }}>
             <li>Download the Tally Sync Agent installer (.exe)</li>
             <li>Run the installer on the client's Windows machine where TallyPrime is installed</li>
-            <li>Enter the installation key <strong style={{ color: '#14b8a6' }}>{result.installation_key}</strong> when prompted</li>
+            <li>Enter the installation key <strong style={{ color: '#3db8a9' }}>{result.installation_key}</strong> when prompted</li>
             <li>The agent will register and begin syncing data automatically</li>
           </ol>
         </div>
@@ -174,9 +174,9 @@ export default function OnboardClientPage() {
           <button
             onClick={() => router.push('/clients')}
             style={{
-              flex: 1, padding: '12px', borderRadius: 8, border: '1px solid #334155',
-              background: '#1e293b', color: '#f1f5f9', cursor: 'pointer',
-              fontFamily: 'Inter, system-ui', fontSize: 14, fontWeight: 500,
+              flex: 1, padding: '12px', borderRadius: 10, border: '1px solid #2d3e50',
+              background: '#1b263b', color: '#f5f0e8', cursor: 'pointer',
+               fontSize: 14, fontWeight: 500,
             }}
           >
             Back to Clients
@@ -184,9 +184,9 @@ export default function OnboardClientPage() {
           <button
             onClick={() => router.push(`/clients/${result.client_id}`)}
             style={{
-              flex: 1, padding: '12px', borderRadius: 8, border: 'none',
-              background: '#14b8a6', color: '#0f172a', cursor: 'pointer',
-              fontFamily: 'Inter, system-ui', fontSize: 14, fontWeight: 600,
+              flex: 1, padding: '12px', borderRadius: 10, border: 'none',
+              background: '#3db8a9', color: '#0d1b2a', cursor: 'pointer',
+               fontSize: 14, fontWeight: 600,
             }}
           >
             View Client Dashboard
@@ -204,33 +204,33 @@ export default function OnboardClientPage() {
           onClick={() => router.push('/clients')}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-            color: '#64748b', cursor: 'pointer', padding: 0, fontSize: 13, marginBottom: 12,
+            color: '#a8b8c8', cursor: 'pointer', padding: 0, fontSize: 13, marginBottom: 12,
           }}
         >
           <ArrowLeft size={14} /> Back to Clients
         </button>
-        <h2 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 28, color: '#f1f5f9', margin: 0 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 28, color: '#f5f0e8', margin: 0 }}>
           Onboard New Client
         </h2>
-        <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
+        <p style={{ color: '#a8b8c8', fontSize: 14, marginTop: 4 }}>
           Register an MSME business and generate an installation key for their Tally Sync agent.
         </p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <h3 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 600, fontSize: 16, color: '#f1f5f9', margin: 0 }}>
+        <div style={{ background: '#1b263b', border: '1px solid #2d3e50', borderRadius: 14, padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <h3 style={{ fontWeight: 600, fontSize: 16, color: '#f5f0e8', margin: 0 }}>
             Business Details
           </h3>
 
           {/* Company Name */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#94a3b8', marginBottom: 6 }}>
-              Company Name <span style={{ color: '#ef4444' }}>*</span>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#a8b8c8', marginBottom: 6 }}>
+              Company Name <span style={{ color: '#c45c4a' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
-              <Building2 size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <Building2 size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#a8b8c8' }} />
               <input
                 value={form.company_name}
                 onChange={e => setForm({ ...form, company_name: e.target.value })}
@@ -238,16 +238,16 @@ export default function OnboardClientPage() {
                 style={inputStyle('company_name')}
               />
             </div>
-            {errors.company_name && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{errors.company_name}</p>}
+            {errors.company_name && <p style={{ color: '#c45c4a', fontSize: 12, marginTop: 4 }}>{errors.company_name}</p>}
           </div>
 
           {/* Email */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#94a3b8', marginBottom: 6 }}>
-              Email <span style={{ color: '#ef4444' }}>*</span>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#a8b8c8', marginBottom: 6 }}>
+              Email <span style={{ color: '#c45c4a' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#a8b8c8' }} />
               <input
                 type="email"
                 value={form.email}
@@ -256,16 +256,16 @@ export default function OnboardClientPage() {
                 style={inputStyle('email')}
               />
             </div>
-            {errors.email && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{errors.email}</p>}
+            {errors.email && <p style={{ color: '#c45c4a', fontSize: 12, marginTop: 4 }}>{errors.email}</p>}
           </div>
 
           {/* Phone */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#94a3b8', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#a8b8c8', marginBottom: 6 }}>
               Phone
             </label>
             <div style={{ position: 'relative' }}>
-              <Phone size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <Phone size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#a8b8c8' }} />
               <input
                 value={form.phone}
                 onChange={e => setForm({ ...form, phone: e.target.value })}
@@ -277,11 +277,11 @@ export default function OnboardClientPage() {
 
           {/* GST ID */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#94a3b8', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#a8b8c8', marginBottom: 6 }}>
               GST Number
             </label>
             <div style={{ position: 'relative' }}>
-              <Hash size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <Hash size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#a8b8c8' }} />
               <input
                 value={form.gst_id}
                 onChange={e => setForm({ ...form, gst_id: e.target.value.toUpperCase() })}
@@ -290,12 +290,12 @@ export default function OnboardClientPage() {
                 style={inputStyle('gst_id')}
               />
             </div>
-            {errors.gst_id && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{errors.gst_id}</p>}
+            {errors.gst_id && <p style={{ color: '#c45c4a', fontSize: 12, marginTop: 4 }}>{errors.gst_id}</p>}
           </div>
 
           {/* Plan */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#94a3b8', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#a8b8c8', marginBottom: 6 }}>
               Plan
             </label>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -305,11 +305,11 @@ export default function OnboardClientPage() {
                   type="button"
                   onClick={() => setForm({ ...form, plan: p })}
                   style={{
-                    flex: 1, padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
-                    border: `1px solid ${form.plan === p ? '#14b8a6' : '#334155'}`,
-                    background: form.plan === p ? '#14b8a615' : '#0f172a',
-                    color: form.plan === p ? '#14b8a6' : '#94a3b8',
-                    fontFamily: 'Inter, system-ui', fontSize: 13, fontWeight: 500,
+                    flex: 1, padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+                    border: `1px solid ${form.plan === p ? '#3db8a9' : '#2d3e50'}`,
+                    background: form.plan === p ? '#3db8a915' : '#0d1b2a',
+                    color: form.plan === p ? '#3db8a9' : '#a8b8c8',
+                     fontSize: 13, fontWeight: 500,
                     textTransform: 'capitalize', transition: 'all 0.15s',
                   }}
                 >
@@ -324,10 +324,10 @@ export default function OnboardClientPage() {
         {mutation.isError && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-            borderRadius: 8, background: '#ef444415', border: '1px solid #ef444440',
+            borderRadius: 10, background: '#c45c4a15', border: '1px solid #c45c4a40',
           }}>
-            <AlertCircle size={16} color="#ef4444" />
-            <span style={{ color: '#f87171', fontSize: 13 }}>
+            <AlertCircle size={16} color="#c45c4a" />
+            <span style={{ color: '#c45c4a', fontSize: 13 }}>
               {(mutation.error as Error & { response?: { data?: { detail?: string } } })?.response?.data?.detail || (mutation.error as Error).message}
             </span>
           </div>
@@ -339,9 +339,9 @@ export default function OnboardClientPage() {
           disabled={mutation.isPending}
           style={{
             padding: '14px', borderRadius: 10, border: 'none',
-            background: mutation.isPending ? '#14b8a680' : '#14b8a6',
-            color: '#0f172a', cursor: mutation.isPending ? 'wait' : 'pointer',
-            fontFamily: 'Inter, system-ui', fontSize: 15, fontWeight: 600,
+            background: mutation.isPending ? '#3db8a980' : '#3db8a9',
+            color: '#0d1b2a', cursor: mutation.isPending ? 'wait' : 'pointer',
+             fontSize: 15, fontWeight: 600,
             transition: 'background 0.15s',
           }}
         >

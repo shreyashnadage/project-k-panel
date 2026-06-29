@@ -3,13 +3,13 @@ export type PageType = 'dashboard' | 'vouchers' | 'ledgers' | 'devices' | 'sync-
 export type VoucherType = 'Sales' | 'Purchase' | 'Receipt' | 'Payment' | 'Journal' | 'Debit Note' | 'Credit Note'
 
 export const VOUCHER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  'Sales':       { bg: '#dcfce7', text: '#166534', border: '#86efac' },
-  'Purchase':    { bg: '#dbeafe', text: '#1e3a8a', border: '#93c5fd' },
-  'Receipt':     { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
-  'Payment':     { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
-  'Journal':     { bg: '#f3e8ff', text: '#581c87', border: '#c4b5fd' },
-  'Debit Note':  { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
-  'Credit Note': { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
+  'Sales':       { bg: '#3db8a915', text: '#3db8a9', border: '#3db8a940' },
+  'Purchase':    { bg: '#a8b8c815', text: '#a8b8c8', border: '#a8b8c840' },
+  'Receipt':     { bg: '#2a9d8f15', text: '#2a9d8f', border: '#2a9d8f40' },
+  'Payment':     { bg: '#c45c4a15', text: '#c45c4a', border: '#c45c4a40' },
+  'Journal':     { bg: '#d4a37315', text: '#d4a373', border: '#d4a37340' },
+  'Debit Note':  { bg: '#e07a3d15', text: '#e07a3d', border: '#e07a3d40' },
+  'Credit Note': { bg: '#e07a3d15', text: '#e07a3d', border: '#e07a3d40' },
 }
 
 export interface KPIData {

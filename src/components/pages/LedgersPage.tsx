@@ -49,7 +49,7 @@ export default function LedgersPage() {
   if (error) {
     return (
       <div style={{ textAlign: 'center', padding: 64 }}>
-        <p style={{ color: '#ef4444' }}>Failed to load ledgers: {(error as Error).message}</p>
+        <p style={{ color: '#c45c4a' }}>Failed to load ledgers: {(error as Error).message}</p>
       </div>
     )
   }
@@ -59,14 +59,14 @@ export default function LedgersPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h2 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 28, color: '#f1f5f9', margin: 0 }}>
+          <h2 style={{ fontWeight: 700, fontSize: 28, color: '#f5f0e8', margin: 0 }}>
             Ledgers
           </h2>
-          <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
+          <p style={{ color: '#a8b8c8', fontSize: 14, marginTop: 4 }}>
             Chart of accounts synced from TallyPrime
           </p>
         </div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#94a3b8', background: '#1e293b', padding: '6px 14px', borderRadius: 8, border: '1px solid #334155' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: '#a8b8c8', background: '#1b263b', padding: '6px 14px', borderRadius: 10, border: '1px solid #2d3e50' }}>
           {total} records
         </div>
       </div>
@@ -74,15 +74,15 @@ export default function LedgersPage() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <form onSubmit={handleSearch} style={{ display: 'flex', flex: 1, minWidth: 220, position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#a8b8c8' }} />
           <input
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             placeholder="Search by name or group..."
             style={{
-              flex: 1, padding: '10px 12px 10px 36px', borderRadius: 8,
-              border: '1px solid #334155', background: '#0f172a', color: '#f1f5f9',
-              fontFamily: 'Inter, system-ui', fontSize: 14, outline: 'none',
+              flex: 1, padding: '10px 12px 10px 36px', borderRadius: 10,
+              border: '1px solid #2d3e50', background: '#0d1b2a', color: '#f5f0e8',
+               fontSize: 14, outline: 'none',
             }}
           />
         </form>
@@ -90,8 +90,8 @@ export default function LedgersPage() {
           value={parentFilter}
           onChange={e => { setParentFilter(e.target.value); setSkip(0) }}
           style={{
-            padding: '10px 14px', borderRadius: 8, border: '1px solid #334155',
-            background: '#0f172a', color: '#f1f5f9', fontFamily: 'Inter, system-ui',
+            padding: '10px 14px', borderRadius: 10, border: '1px solid #2d3e50',
+            background: '#0d1b2a', color: '#f5f0e8',
             fontSize: 14, minWidth: 180, cursor: 'pointer', outline: 'none',
           }}
         >
@@ -101,29 +101,29 @@ export default function LedgersPage() {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: '#1b263b', border: '1px solid #2d3e50', borderRadius: 14, overflow: 'hidden' }}>
         {isLoading ? (
           <div style={{ padding: 48, textAlign: 'center' }}>
-            <div className="shimmer" style={{ width: 200, height: 20, borderRadius: 6, margin: '0 auto 16px', background: '#334155' }} />
+            <div className="shimmer" style={{ width: 200, height: 20, borderRadius: 6, margin: '0 auto 16px', background: '#2d3e50' }} />
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="shimmer" style={{ height: 44, background: '#334155', marginBottom: 2 }} />
+              <div key={i} className="shimmer" style={{ height: 44, background: '#2d3e50', marginBottom: 2 }} />
             ))}
           </div>
         ) : !data?.data.length ? (
           <div style={{ textAlign: 'center', padding: 64 }}>
-            <BookOpen size={48} style={{ color: '#475569', marginBottom: 16 }} />
-            <p style={{ color: '#94a3b8', fontWeight: 600, fontSize: 16 }}>No ledgers found</p>
-            <p style={{ color: '#64748b', fontSize: 14 }}>
+            <BookOpen size={48} style={{ color: '#2d3e50', marginBottom: 16 }} />
+            <p style={{ color: '#a8b8c8', fontWeight: 600, fontSize: 16 }}>No ledgers found</p>
+            <p style={{ color: '#a8b8c8', fontSize: 14 }}>
               {search || parentFilter ? 'Try adjusting your filters.' : 'They\'ll appear here once your agent syncs.'}
             </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter, system-ui', fontSize: 14 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #334155' }}>
+                <tr style={{ borderBottom: '1px solid #2d3e50' }}>
                   {['Ledger Name', 'Group', 'Type', 'Opening Balance', 'Closing Balance'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#a8b8c8', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       {h}
                     </th>
                   ))}
@@ -131,23 +131,23 @@ export default function LedgersPage() {
               </thead>
               <tbody>
                 {data.data.map(l => (
-                  <tr key={l.id} style={{ borderBottom: '1px solid #1e293b' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#263348')}
+                  <tr key={l.id} style={{ borderBottom: '1px solid #1b263b' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#152a40')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <td style={{ padding: '12px 16px', color: '#f1f5f9', fontWeight: 500 }}>{l.name}</td>
-                    <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{l.parent || '-'}</td>
+                    <td style={{ padding: '12px 16px', color: '#f5f0e8', fontWeight: 500 }}>{l.name}</td>
+                    <td style={{ padding: '12px 16px', color: '#a8b8c8' }}>{l.parent || '-'}</td>
                     <td style={{ padding: '12px 16px' }}>
                       {l.ledger_type ? (
-                        <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#1e3a5f', color: '#7dd3fc', border: '1px solid #2563eb33' }}>
+                        <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#152a40', color: '#3db8a9', border: '1px solid #2d3e5033' }}>
                           {l.ledger_type}
                         </span>
                       ) : '-'}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#94a3b8', textAlign: 'right' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 13, color: '#a8b8c8', textAlign: 'right' }}>
                       {fmtBalance(l.opening_balance)}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#f1f5f9', textAlign: 'right', fontWeight: 500 }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 13, color: '#f5f0e8', textAlign: 'right', fontWeight: 500 }}>
                       {fmtBalance(l.closing_balance)}
                     </td>
                   </tr>
@@ -159,25 +159,25 @@ export default function LedgersPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid #334155' }}>
-            <span style={{ color: '#64748b', fontSize: 13 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid #2d3e50' }}>
+            <span style={{ color: '#a8b8c8', fontSize: 13 }}>
               Showing {skip + 1}–{Math.min(skip + PAGE_SIZE, total)} of {total}
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 disabled={skip === 0}
                 onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}
-                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #334155', background: '#0f172a', color: skip === 0 ? '#475569' : '#f1f5f9', cursor: skip === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #2d3e50', background: '#0d1b2a', color: skip === 0 ? '#2d3e50' : '#f5f0e8', cursor: skip === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}
               >
                 <ChevronLeft size={14} /> Prev
               </button>
-              <span style={{ padding: '6px 12px', fontSize: 13, color: '#94a3b8' }}>
+              <span style={{ padding: '6px 12px', fontSize: 13, color: '#a8b8c8' }}>
                 {currentPage} / {totalPages}
               </span>
               <button
                 disabled={skip + PAGE_SIZE >= total}
                 onClick={() => setSkip(skip + PAGE_SIZE)}
-                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #334155', background: '#0f172a', color: skip + PAGE_SIZE >= total ? '#475569' : '#f1f5f9', cursor: skip + PAGE_SIZE >= total ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #2d3e50', background: '#0d1b2a', color: skip + PAGE_SIZE >= total ? '#2d3e50' : '#f5f0e8', cursor: skip + PAGE_SIZE >= total ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}
               >
                 Next <ChevronRight size={14} />
               </button>

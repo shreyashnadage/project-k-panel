@@ -18,9 +18,9 @@ function formatRelativeTime(iso: string | null): string {
 
 function StatusBadge({ status }: { status: Device['status'] }) {
   const map = {
-    active:   { color: '#22c55e', label: 'Active' },
-    inactive: { color: '#64748b', label: 'Inactive' },
-    error:    { color: '#ef4444', label: 'Error' },
+    active:   { color: '#3db8a9', label: 'Active' },
+    inactive: { color: '#a8b8c8', label: 'Inactive' },
+    error:    { color: '#c45c4a', label: 'Error' },
   }
   const { color, label } = map[status]
   return (
@@ -39,7 +39,7 @@ function StatusBadge({ status }: { status: Device['status'] }) {
 function DeviceCard({ device }: { device: Device }) {
   return (
     <div style={{
-      background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24,
+      background: '#1b263b', border: '1px solid #2d3e50', borderRadius: 14, padding: 24,
       display: 'flex', flexDirection: 'column', gap: 12,
       transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     }}
@@ -48,14 +48,14 @@ function DeviceCard({ device }: { device: Device }) {
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#14b8a620', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Monitor size={20} color="#14b8a6" />
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#3db8a920', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Monitor size={20} color="#3db8a9" />
           </div>
           <div>
-            <div style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 15, color: '#f1f5f9' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#f5f0e8' }}>
               {device.device_name}
             </div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#64748b', marginTop: 2 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#a8b8c8', marginTop: 2 }}>
               {device.device_id}
             </div>
           </div>
@@ -71,17 +71,17 @@ function DeviceCard({ device }: { device: Device }) {
           ['IP', device.last_ip || '—'],
         ].map(([label, value]) => (
           <div key={label}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>{label}</div>
-            <div style={{ fontSize: 13, color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace' }}>{value}</div>
+            <div style={{ fontSize: 11, color: '#a8b8c8', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 13, color: '#f5f0e8', fontFamily: 'var(--font-mono)' }}>{value}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
         <button style={{
-          flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #334155',
-          background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer',
-          fontFamily: 'Inter, system-ui', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          flex: 1, padding: '8px', borderRadius: 10, border: '1px solid #2d3e50',
+          background: 'transparent', color: '#a8b8c8', fontSize: 13, cursor: 'pointer',
+           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
           <RefreshCw size={13} /> Rotate Key
         </button>
@@ -100,10 +100,10 @@ export default function DevicesPage() {
   return (
     <div className="page-enter">
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 28, color: '#f1f5f9', margin: 0 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 28, color: '#f5f0e8', margin: 0 }}>
           Devices
         </h2>
-        <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
+        <p style={{ color: '#a8b8c8', fontSize: 14, marginTop: 4 }}>
           Windows machines running the Tally Sync agent
         </p>
       </div>
@@ -111,7 +111,7 @@ export default function DevicesPage() {
       {isLoading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
           {[1, 2].map((i) => (
-            <div key={i} style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 24 }}>
+            <div key={i} style={{ background: '#1b263b', border: '1px solid #2d3e50', borderRadius: 14, padding: 24 }}>
               <div className="skeleton" style={{ height: 40, width: '70%', marginBottom: 16 }} />
               <div className="skeleton" style={{ height: 14, width: '50%', marginBottom: 8 }} />
               <div className="skeleton" style={{ height: 14, width: '60%' }} />
@@ -121,18 +121,18 @@ export default function DevicesPage() {
       )}
 
       {error && (
-        <div style={{ background: '#1e293b', border: '1px solid #ef4444', borderRadius: 12, padding: 24, color: '#f87171' }}>
+        <div style={{ background: '#1b263b', border: '1px solid #c45c4a', borderRadius: 14, padding: 24, color: '#c45c4a' }}>
           Could not load devices. Ensure you are authenticated with a valid access token.
         </div>
       )}
 
       {!isLoading && !error && (!data || data.length === 0) && (
-        <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: '48px 24px', textAlign: 'center' }}>
-          <Monitor size={48} color="#475569" style={{ marginBottom: 12 }} />
-          <p style={{ fontFamily: 'Outfit, system-ui', fontWeight: 600, fontSize: 18, color: '#94a3b8', margin: '0 0 8px' }}>
+        <div style={{ background: '#1b263b', border: '1px solid #2d3e50', borderRadius: 14, padding: '48px 24px', textAlign: 'center' }}>
+          <Monitor size={48} color="#2d3e50" style={{ marginBottom: 12 }} />
+          <p style={{ fontWeight: 600, fontSize: 18, color: '#a8b8c8', margin: '0 0 8px' }}>
             No devices registered
           </p>
-          <p style={{ color: '#64748b', fontSize: 14 }}>
+          <p style={{ color: '#a8b8c8', fontSize: 14 }}>
             Install the agent on your Windows PC to get started.
           </p>
         </div>

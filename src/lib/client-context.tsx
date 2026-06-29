@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { adminApi, scopedApi } from '@/lib/api'
+import { adminApi, scopedApi, analyticsApi } from '@/lib/api'
 import type { ClientDetail, ClientDeviceInfo } from '@/types/widgets'
 
 interface ClientContextValue {
@@ -15,6 +15,7 @@ interface ClientContextValue {
   isLoading: boolean
   error: string | null
   clientApi: ReturnType<typeof scopedApi> | null
+  analyticsClient: ReturnType<typeof analyticsApi> | null
 }
 
 const ClientContext = createContext<ClientContextValue | null>(null)
@@ -47,6 +48,11 @@ export function ClientContextProvider({
     [apiKey],
   )
 
+  const analyticsClientInstance = useMemo(
+    () => (apiKey ? analyticsApi(apiKey) : null),
+    [apiKey],
+  )
+
   const value: ClientContextValue = {
     clientId,
     companyName: detailQuery.data?.company_name ?? 'Loading...',
@@ -61,6 +67,7 @@ export function ClientContextProvider({
         ? 'Failed to load client'
         : null,
     clientApi: clientApiInstance,
+    analyticsClient: analyticsClientInstance,
   }
 
   return (
@@ -74,4 +81,9 @@ export function useClientContext() {
   const ctx = useContext(ClientContext)
   if (!ctx) throw new Error('useClientContext must be used within ClientContextProvider')
   return ctx
+}
+
+export function useAnalyticsApi() {
+  const { analyticsClient } = useClientContext()
+  return analyticsClient
 }

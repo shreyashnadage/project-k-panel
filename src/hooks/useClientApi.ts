@@ -1,9 +1,9 @@
 'use client'
 
 import { useClientContext } from '@/lib/client-context'
+import { scopedApi } from '@/lib/api'
 
-export function useClientApi() {
+export function useClientApi(): ReturnType<typeof scopedApi> | null {
   const { clientApi } = useClientContext()
-  if (!clientApi) throw new Error('Client API not available — no active device for this client')
   return clientApi
 }

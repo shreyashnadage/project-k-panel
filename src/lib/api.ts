@@ -4,6 +4,11 @@ import type {
   LedgersResponse, SyncHistoryResponse, SyncCommandType,
   ClientsListResponse, ClientDetail,
 } from '@/types/widgets'
+import type {
+  MetricSummary, AlertListResponse, AlertUpdateRequest,
+  InsightListResponse, LoanRecommendation, LoanEvidenceResponse,
+  PipelineRun, PipelineTriggerResponse,
+} from '@/types/analytics'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
@@ -74,6 +79,10 @@ export function scopedApi(apiKey: string) {
       const { data } = await client.get<SyncHistoryResponse>(`/api/dashboard/sync-history?${params}`)
       return data
     },
+    getCompanies: async (deviceId: string): Promise<{ count: number; companies: Array<{ company_name: string; company_guid: string; state: string }> }> => {
+      const { data } = await client.get(`/v1/companies`, { params: { device_id: deviceId } })
+      return data
+    },
     createCommand: async (deviceId: string, commandType: SyncCommandType, cmdParams: Record<string, string> = {}) => {
       const { data } = await client.post('/v1/commands', {
         device_id: deviceId,
@@ -83,6 +92,36 @@ export function scopedApi(apiKey: string) {
       })
       return data
     },
+  }
+}
+
+// ─── Analytics Engine API (X-API-Key, separate base URL) ────
+const ANALYTICS_URL = process.env.NEXT_PUBLIC_ANALYTICS_URL ?? 'http://localhost:8001'
+
+export function analyticsApi(apiKey: string) {
+  const client = axios.create({
+    baseURL: ANALYTICS_URL,
+    headers: { 'X-API-Key': apiKey },
+  })
+  return {
+    getMetricSummary: (clientId: string): Promise<MetricSummary> =>
+      client.get(`/v1/metrics/${clientId}/summary`).then(r => r.data),
+    getAlerts: (clientId: string, status = 'open'): Promise<AlertListResponse> =>
+      client.get(`/v1/alerts/${clientId}?status=${status}`).then(r => r.data),
+    updateAlert: (clientId: string, alertId: string, body: AlertUpdateRequest): Promise<void> =>
+      client.patch(`/v1/alerts/${clientId}/${alertId}`, body).then(r => r.data),
+    getInsights: (clientId: string): Promise<InsightListResponse> =>
+      client.get(`/v1/insights/${clientId}`).then(r => r.data),
+    markInsightRead: (clientId: string, insightId: string): Promise<void> =>
+      client.patch(`/v1/insights/${clientId}/${insightId}/read`).then(r => r.data),
+    getLoanRecommendations: (clientId: string): Promise<LoanRecommendation[]> =>
+      client.get(`/v1/loan/${clientId}/recommendations`).then(r => r.data),
+    getLoanEvidence: (clientId: string, recoId: string): Promise<LoanEvidenceResponse> =>
+      client.get(`/v1/loan/${clientId}/recommendations/${recoId}/evidence`).then(r => r.data),
+    triggerPipeline: (clientId: string): Promise<PipelineTriggerResponse> =>
+      client.post(`/admin/pipeline/${clientId}/trigger`).then(r => r.data),
+    getPipelineRuns: (clientId: string): Promise<PipelineRun[]> =>
+      client.get(`/admin/pipeline/${clientId}/runs`).then(r => r.data),
   }
 }
 
@@ -96,6 +135,16 @@ function authClient() {
     }
     return config
   })
+  client.interceptors.response.use(
+    (res) => res,
+    (err) => {
+      if (err.response?.status === 401 && typeof window !== 'undefined') {
+        localStorage.removeItem('access_token')
+        window.location.href = '/login'
+      }
+      return Promise.reject(err)
+    },
+  )
   return client
 }
 
@@ -125,6 +174,40 @@ export const adminApi = {
   getClientApiKey: async (clientId: string): Promise<{ api_key: string; device_id: string; device_name: string }> => {
     const { data } = await authClient().get(`/v1/admin/clients/${clientId}/api-key`)
     return data
+  },
+
+  getTelemetryEvents: async (clientId: string, opts?: { severity?: string; event_type?: string; limit?: number }) => {
+    const params = new URLSearchParams()
+    if (opts?.severity) params.set('severity', opts.severity)
+    if (opts?.event_type) params.set('event_type', opts.event_type)
+    params.set('limit', String(opts?.limit ?? 200))
+    const { data } = await authClient().get(`/v1/telemetry/events/by-tenant/${clientId}?${params}`)
+    return data as Array<{
+      event_id: string; event_type: string; timestamp: string; severity: string;
+      data: Record<string, any>; agent_id: string; tenant_id: string;
+      agent_version: string | null; hostname: string | null; source: string;
+      error_message: string | null; error_code: string | null; error_stack: string | null;
+    }>
+  },
+
+  getTelemetryStats: async (agentId?: string) => {
+    const params = agentId ? `?agent_id=${agentId}` : ''
+    const { data } = await authClient().get(`/v1/telemetry/stats${params}`)
+    return data as {
+      total_events: number; by_event_type: Record<string, number>;
+      by_severity: Record<string, number>; by_agent_id: Record<string, number>;
+      recent_errors: Array<any>;
+    }
+  },
+
+  getTelemetryConfig: async (clientId: string) => {
+    const { data } = await authClient().get(`/v1/admin/clients/${clientId}/telemetry-config`)
+    return data as { client_id: string; frequency: string }
+  },
+
+  updateTelemetryConfig: async (clientId: string, frequency: string) => {
+    const { data } = await authClient().put(`/v1/admin/clients/${clientId}/telemetry-config`, { frequency })
+    return data as { client_id: string; frequency: string }
   },
 
   onboardClient: async (req: {

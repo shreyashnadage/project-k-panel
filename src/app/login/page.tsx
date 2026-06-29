@@ -6,6 +6,16 @@ import { useDashboardStore } from '@/lib/store'
 import { adminApi } from '@/lib/api'
 import { LogIn } from 'lucide-react'
 
+const C = {
+  navy:       '#0d1b2a',
+  navyMuted:  '#1b263b',
+  borderDark: '#2d3e50',
+  tealDark:   '#3db8a9',
+  cream:      '#f5f0e8',
+  textSec:    '#a8b8c8',
+  error:      '#c45c4a',
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const { setAccessToken, setAdminUser } = useDashboardStore()
@@ -37,34 +47,35 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#0f172a',
+      background: C.navy,
     }}>
       <div style={{
-        width: 400, background: '#1e293b', border: '1px solid #334155',
-        borderRadius: 16, padding: 40,
+        width: 400, background: C.navyMuted, border: `1px solid ${C.borderDark}`,
+        borderRadius: 20, padding: 40,
       }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
             width: 56, height: 56, borderRadius: 14, margin: '0 auto 16px',
-            background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+            background: C.tealDark,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 20,
-            fontFamily: 'Outfit, system-ui',
+            color: C.navy, fontWeight: 700, fontSize: 22,
           }}>
-            TS
+            Mc
           </div>
           <h1 style={{
-            fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 24,
-            color: '#f1f5f9', margin: '0 0 4px',
+            fontWeight: 700, fontSize: 24,
+            color: C.cream, margin: '0 0 4px',
           }}>
-            Tally Sync Admin
+            <span style={{ color: C.cream }}>Munim</span>
+            <span style={{ color: C.tealDark }}>Co</span>
+            <span style={{ color: C.cream }}> Panel</span>
           </h1>
-          <p style={{ color: '#64748b', fontSize: 14 }}>Sign in to the admin console</p>
+          <p style={{ color: C.textSec, fontSize: 14, margin: 0 }}>Sign in to the admin console</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#94a3b8', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: C.textSec, marginBottom: 6 }}>
               Email
             </label>
             <input
@@ -74,15 +85,16 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               placeholder="admin@company.com"
               style={{
-                width: '100%', padding: '10px 14px', borderRadius: 8,
-                border: '1px solid #334155', background: '#0f172a', color: '#f1f5f9',
-                fontFamily: 'Inter, system-ui', fontSize: 14, outline: 'none',
-                boxSizing: 'border-box',
+                width: '100%', padding: '10px 14px', borderRadius: 10,
+                border: `1px solid ${C.borderDark}`, background: C.navy, color: C.cream,
+                fontSize: 14, outline: 'none', boxSizing: 'border-box',
               }}
+              onFocus={e => { e.currentTarget.style.borderColor = C.tealDark; e.currentTarget.style.boxShadow = `0 0 0 2px ${C.tealDark}33` }}
+              onBlur={e => { e.currentTarget.style.borderColor = C.borderDark; e.currentTarget.style.boxShadow = 'none' }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#94a3b8', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: C.textSec, marginBottom: 6 }}>
               Password
             </label>
             <input
@@ -92,18 +104,19 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               placeholder="Enter password"
               style={{
-                width: '100%', padding: '10px 14px', borderRadius: 8,
-                border: '1px solid #334155', background: '#0f172a', color: '#f1f5f9',
-                fontFamily: 'Inter, system-ui', fontSize: 14, outline: 'none',
-                boxSizing: 'border-box',
+                width: '100%', padding: '10px 14px', borderRadius: 10,
+                border: `1px solid ${C.borderDark}`, background: C.navy, color: C.cream,
+                fontSize: 14, outline: 'none', boxSizing: 'border-box',
               }}
+              onFocus={e => { e.currentTarget.style.borderColor = C.tealDark; e.currentTarget.style.boxShadow = `0 0 0 2px ${C.tealDark}33` }}
+              onBlur={e => { e.currentTarget.style.borderColor = C.borderDark; e.currentTarget.style.boxShadow = 'none' }}
             />
           </div>
 
           {error && (
             <div style={{
-              padding: '10px 14px', borderRadius: 8, background: '#ef444420',
-              border: '1px solid #ef444440', color: '#f87171', fontSize: 13,
+              padding: '10px 14px', borderRadius: 10, background: `${C.error}20`,
+              border: `1px solid ${C.error}40`, color: C.error, fontSize: 13,
             }}>
               {error}
             </div>
@@ -113,12 +126,12 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             style={{
-              padding: '12px', borderRadius: 8, border: 'none',
-              background: loading ? '#0d948880' : '#14b8a6',
-              color: '#fff', fontFamily: 'Inter, system-ui', fontWeight: 600,
+              padding: '12px', borderRadius: 10, border: 'none',
+              background: loading ? `${C.tealDark}80` : C.tealDark,
+              color: C.navy, fontWeight: 600,
               fontSize: 14, cursor: loading ? 'wait' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              transition: 'background 0.15s',
+              transition: 'opacity 0.15s',
             }}
           >
             <LogIn size={16} />

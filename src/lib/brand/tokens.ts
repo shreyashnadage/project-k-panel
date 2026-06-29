@@ -1,0 +1,15 @@
+export const munimco = {
+  cream: "#F5F0E8",
+  navy: "#0D1B2A",
+  navyMuted: "#1B263B",
+  navyElevated: "#152A40",
+  coTeal: "#2A9D8F",
+  coTealDark: "#3DB8A9",
+  saffron: "#E07A3D",
+  amber: "#D4A373",
+  borderLight: "#E8E2D8",
+  borderDark: "#2D3E50",
+  textSecondary: "#415A77",
+  textSecondaryDark: "#A8B8C8",
+  error: "#C45C4A",
+} as const;

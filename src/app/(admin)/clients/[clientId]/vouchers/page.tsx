@@ -12,12 +12,12 @@ const PAGE_SIZE = 10
 const VOUCHER_TYPES = ['All', 'Sales', 'Purchase', 'Receipt', 'Payment', 'Journal', 'Debit Note', 'Credit Note']
 
 function TypeBadge({ type }: { type: string }) {
-  const c = VOUCHER_COLORS[type] || { bg: '#1e293b', text: '#94a3b8', border: '#334155' }
+  const c = VOUCHER_COLORS[type] || { bg: '#1b263b', text: '#a8b8c8', border: '#2d3e50' }
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 20,
       fontSize: 12, fontWeight: 500, background: c.bg, color: c.text, border: `1px solid ${c.border}`,
-      fontFamily: 'Inter, system-ui', whiteSpace: 'nowrap',
+       whiteSpace: 'nowrap',
     }}>
       {type}
     </span>
@@ -55,7 +55,8 @@ export default function VouchersPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vouchers', clientId, apiPage],
-    queryFn: () => clientApi.getVouchers(apiPage * 50, 50),
+    queryFn: () => clientApi!.getVouchers(apiPage * 50, 50),
+    enabled: !!clientApi,
     staleTime: 30_000,
   })
 
@@ -72,33 +73,42 @@ export default function VouchersPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const pageSlice = filtered.slice(localPage * PAGE_SIZE, (localPage + 1) * PAGE_SIZE)
 
+  if (!clientApi) {
+    return (
+      <div className="page-enter" style={{ textAlign: 'center', padding: 64 }}>
+        <p style={{ color: '#f5f0e8', fontWeight: 600, fontSize: 16 }}>No active devices</p>
+        <p style={{ color: '#a8b8c8', fontSize: 14, marginTop: 8 }}>This client needs a registered device before voucher data is available.</p>
+      </div>
+    )
+  }
+
   if (error) {
-    return <div style={{ background: '#1e293b', border: '1px solid #ef4444', borderRadius: 12, padding: 20, color: '#f87171' }}>Failed to load vouchers.</div>
+    return <div style={{ background: '#1b263b', border: '1px solid #c45c4a', borderRadius: 14, padding: 20, color: '#c45c4a' }}>Failed to load vouchers.</div>
   }
 
   return (
     <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div>
-        <h2 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 700, fontSize: 28, color: '#f1f5f9', margin: 0 }}>Vouchers</h2>
-        <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>All synced vouchers for {companyName}</p>
+        <h2 style={{ fontWeight: 700, fontSize: 28, color: '#f5f0e8', margin: 0 }}>Vouchers</h2>
+        <p style={{ color: '#a8b8c8', fontSize: 14, marginTop: 4 }}>All synced vouchers for {companyName}</p>
       </div>
 
-      <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h3 style={{ fontFamily: 'Outfit, system-ui', fontWeight: 600, fontSize: 16, color: '#f1f5f9', margin: 0, flex: 1 }}>Vouchers</h3>
+      <div style={{ background: '#1b263b', border: '1px solid #2d3e50', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #2d3e50', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h3 style={{ fontWeight: 600, fontSize: 16, color: '#f5f0e8', margin: 0, flex: 1 }}>Vouchers</h3>
           <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#a8b8c8' }} />
             <input type="text" placeholder="Search party / voucher..." value={search}
               onChange={e => { setSearch(e.target.value); setLocalPage(0) }}
-              style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, padding: '7px 12px 7px 32px', fontSize: 13, color: '#f1f5f9', fontFamily: 'Inter, system-ui', outline: 'none', width: 220 }}
+              style={{ background: '#0d1b2a', border: '1px solid #2d3e50', borderRadius: 10, padding: '7px 12px 7px 32px', fontSize: 13, color: '#f5f0e8', outline: 'none', width: 220 }}
             />
           </div>
           <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setLocalPage(0) }}
-            style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, padding: '7px 12px', fontSize: 13, color: '#f1f5f9', fontFamily: 'Inter, system-ui', outline: 'none', cursor: 'pointer' }}>
+            style={{ background: '#0d1b2a', border: '1px solid #2d3e50', borderRadius: 10, padding: '7px 12px', fontSize: 13, color: '#f5f0e8', outline: 'none', cursor: 'pointer' }}>
             {VOUCHER_TYPES.map(t => <option key={t}>{t}</option>)}
           </select>
           <button onClick={() => downloadCSV(filtered, `vouchers-${companyName}.csv`)}
-            style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontFamily: 'Inter, system-ui' }}>
+            style={{ padding: '7px 12px', borderRadius: 10, border: '1px solid #2d3e50', background: '#0d1b2a', color: '#a8b8c8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,  }}>
             <Download size={14} /> Export
           </button>
         </div>
@@ -106,9 +116,9 @@ export default function VouchersPage() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#0f172a' }}>
+              <tr style={{ background: '#0d1b2a' }}>
                 {['#', 'Date', 'Party', 'Type', 'Amount'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: h === 'Amount' ? 'right' : 'left', fontSize: 12, fontWeight: 600, color: '#64748b', fontFamily: 'Inter, system-ui', borderBottom: '1px solid #334155', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 16px', textAlign: h === 'Amount' ? 'right' : 'left', fontSize: 12, fontWeight: 600, color: '#a8b8c8', borderBottom: '1px solid #2d3e50', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -117,16 +127,16 @@ export default function VouchersPage() {
                 <tr key={i}>{Array.from({ length: 5 }).map((__, j) => <td key={j} style={{ padding: '12px 16px' }}><div className="skeleton" style={{ height: 14, width: j === 2 ? '80%' : '60%' }} /></td>)}</tr>
               ))}
               {!isLoading && pageSlice.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 14 }}>No vouchers match your filter.</td></tr>
+                <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: '#a8b8c8', fontSize: 14 }}>No vouchers match your filter.</td></tr>
               )}
               {!isLoading && pageSlice.map(v => (
-                <tr key={v.id} style={{ borderBottom: '1px solid #1e3a3a', transition: 'background 0.1s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#0f2f2f')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <td style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#64748b' }}>{v.voucher_number}</td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(v.date)}</td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: '#e2e8f0', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.party}</td>
+                <tr key={v.id} style={{ borderBottom: '1px solid #2d3e50', transition: 'background 0.1s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#152a40')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#a8b8c8' }}>{v.voucher_number}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: '#a8b8c8', whiteSpace: 'nowrap' }}>{formatDate(v.date)}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: '#f5f0e8', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.party}</td>
                   <td style={{ padding: '12px 16px' }}><TypeBadge type={v.type} /></td>
-                  <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: '#f1f5f9', whiteSpace: 'nowrap' }}>{formatAmount(v.amount)}</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, color: '#f5f0e8', whiteSpace: 'nowrap' }}>{formatAmount(v.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -134,15 +144,15 @@ export default function VouchersPage() {
         </div>
 
         {!isLoading && filtered.length > PAGE_SIZE && (
-          <div style={{ padding: '12px 20px', borderTop: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, color: '#64748b' }}>Showing {localPage * PAGE_SIZE + 1}–{Math.min((localPage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+          <div style={{ padding: '12px 20px', borderTop: '1px solid #2d3e50', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 12, color: '#a8b8c8' }}>Showing {localPage * PAGE_SIZE + 1}–{Math.min((localPage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setLocalPage(p => Math.max(0, p - 1))} disabled={localPage === 0}
-                style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '5px 10px', color: localPage === 0 ? '#475569' : '#94a3b8', cursor: localPage === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}>
+                style={{ background: '#0d1b2a', border: '1px solid #2d3e50', borderRadius: 6, padding: '5px 10px', color: localPage === 0 ? '#2d3e50' : '#a8b8c8', cursor: localPage === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}>
                 <ChevronLeft size={14} />
               </button>
               <button onClick={() => setLocalPage(p => Math.min(totalPages - 1, p + 1))} disabled={localPage >= totalPages - 1}
-                style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '5px 10px', color: localPage >= totalPages - 1 ? '#475569' : '#94a3b8', cursor: localPage >= totalPages - 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}>
+                style={{ background: '#0d1b2a', border: '1px solid #2d3e50', borderRadius: 6, padding: '5px 10px', color: localPage >= totalPages - 1 ? '#2d3e50' : '#a8b8c8', cursor: localPage >= totalPages - 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}>
                 <ChevronRight size={14} />
               </button>
             </div>
