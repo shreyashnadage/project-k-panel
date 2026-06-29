@@ -107,6 +107,43 @@ class CommandPoller:
 
             self._stop_event.wait(backoff)
 
+    # ── Watermark helpers ────────────────────────────────────────────────────
+
+    def _get_watermark(self, company_guid: str, resource_type: str) -> Optional[str]:
+        try:
+            resp = requests.get(
+                f"{self.cloud_base_url}/v1/watermarks",
+                params={
+                    "device_id": self.device_id,
+                    "company_guid": company_guid,
+                    "resource_type": resource_type,
+                },
+                headers=self._auth_headers(),
+                timeout=10,
+            )
+            if resp.status_code == 200 and resp.json():
+                return resp.json().get("watermark_value")
+        except Exception as e:
+            logger.warning(f"[Poller] Failed to get watermark for {resource_type}/{company_guid}: {e}")
+        return None
+
+    def _set_watermark(self, company_guid: str, resource_type: str, value: str, records: int = 0) -> None:
+        try:
+            requests.put(
+                f"{self.cloud_base_url}/v1/watermarks",
+                json={
+                    "device_id": self.device_id,
+                    "company_guid": company_guid,
+                    "resource_type": resource_type,
+                    "watermark_value": value,
+                    "records_synced": records,
+                },
+                headers=self._auth_headers(),
+                timeout=10,
+            )
+        except Exception as e:
+            logger.warning(f"[Poller] Failed to set watermark for {resource_type}/{company_guid}: {e}")
+
     # ── Cloud API calls ───────────────────────────────────────────────────────
 
     def _auth_headers(self) -> Dict[str, str]:
@@ -271,58 +308,57 @@ class CommandPoller:
         )
 
     def _sync_full_for_company(self, company_name: str, company_id: str) -> Dict[str, Any]:
-        """Run all sync operations for a single company. Returns summary dict."""
+        """Run all sync operations for a single company using watermarks for incremental sync."""
         from datetime import datetime, timedelta
-        summary: Dict[str, Any] = {"company": company_name, "resources": {}}
-
-        # Ledgers
-        r = self.engine.execute({
-            "resource": "ledger", "action": "pull_all",
-            "company_name": company_name, "company_id": company_id, "params": {},
-        })
-        summary["resources"]["ledgers"] = r.record_count
-        if r.success and r.data:
-            self._upload_data(r, company_name)
-
-        # Groups
-        r = self.engine.execute({
-            "resource": "group", "action": "pull_all",
-            "company_name": company_name, "company_id": company_id, "params": {},
-        })
-        summary["resources"]["groups"] = r.record_count
-        if r.success and r.data:
-            self._upload_data(r, company_name)
-
-        # Vouchers (last 90 days)
+        summary: Dict[str, Any] = {"company": company_name, "resources": {}, "incremental": True}
+        company_guid = company_id or company_name
         today = datetime.today()
-        from_d = (today - timedelta(days=90)).strftime("%Y%m%d")
+        today_str = today.strftime("%Y-%m-%d")
+
+        # Master data (ledgers, groups, stock) — still pull_all but backend
+        # now UPSERTs so changed records get updated instead of silently dropped.
+        for resource, action in [
+            ("ledger", "pull_all"),
+            ("group", "pull_all"),
+            ("stock_item", "pull_all"),
+            ("stock_group", "pull_all"),
+        ]:
+            r = self.engine.execute({
+                "resource": resource, "action": action,
+                "company_name": company_name, "company_id": company_id, "params": {},
+            })
+            summary["resources"][resource] = r.record_count
+            if r.success and r.data:
+                self._upload_data(r, company_name)
+                self._set_watermark(company_guid, resource, today_str, r.record_count)
+
+        # Vouchers — incremental: start from last watermark date
+        wm_date = self._get_watermark(company_guid, "voucher")
+        if wm_date:
+            try:
+                from_dt = datetime.strptime(wm_date, "%Y-%m-%d")
+                from_d = from_dt.strftime("%Y%m%d")
+                summary["incremental_voucher_from"] = wm_date
+                logger.info(f"[Poller] Incremental voucher sync from {wm_date} for '{company_name}'")
+            except ValueError:
+                from_d = (today - timedelta(days=90)).strftime("%Y%m%d")
+                summary["incremental"] = False
+        else:
+            from_d = (today - timedelta(days=90)).strftime("%Y%m%d")
+            summary["incremental"] = False
+            logger.info(f"[Poller] First voucher sync (last 90 days) for '{company_name}'")
+
         to_d = today.strftime("%Y%m%d")
         r = self.engine.execute({
             "resource": "voucher", "action": "pull_by_date",
             "company_name": company_name, "company_id": company_id,
             "params": {"from_date": from_d, "to_date": to_d},
         })
-        summary["resources"]["vouchers"] = r.record_count
+        summary["resources"]["voucher"] = r.record_count
         if r.success and r.data:
             self._upload_data(r, company_name)
-
-        # Stock items
-        r = self.engine.execute({
-            "resource": "stock_item", "action": "pull_all",
-            "company_name": company_name, "company_id": company_id, "params": {},
-        })
-        summary["resources"]["stock_items"] = r.record_count
-        if r.success and r.data:
-            self._upload_data(r, company_name)
-
-        # Stock groups
-        r = self.engine.execute({
-            "resource": "stock_group", "action": "pull_all",
-            "company_name": company_name, "company_id": company_id, "params": {},
-        })
-        summary["resources"]["stock_groups"] = r.record_count
-        if r.success and r.data:
-            self._upload_data(r, company_name)
+        if r.success:
+            self._set_watermark(company_guid, "voucher", today_str, r.record_count)
 
         total = sum(summary["resources"].values())
         summary["total_records"] = total
